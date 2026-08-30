@@ -48,14 +48,15 @@ export default function Login() {
     setSubmitting(true);
     try {
       let result;
+      const normalizedUsername = username.trim().toLowerCase();
       if (tab === "admin") {
-        result = await loginAdmin(username, password);
+        result = await loginAdmin(normalizedUsername, password);
       } else if (tab === "frontdesk") {
-        result = await loginFrontDesk(username, password);
+        result = await loginFrontDesk(normalizedUsername, password);
       } else if (tab === "doctor") {
-        result = await loginDoctor(username, password);
+        result = await loginDoctor(normalizedUsername, password);
       } else {
-        result = await loginPatient(username, password);
+        result = await loginPatient(normalizedUsername, password);
       }
 
       if (result.ok) {

@@ -43,11 +43,13 @@ public class AuthController : ControllerBase
     }
 
     // Doctor signs in with a private username (set by Admin at registration) — never a
-    // public dropdown of every doctor's name.
+    // public dropdown of every doctor's name. Username is normalized (trimmed, lowercased)
+    // on both save and lookup so "Test.Doctor" and "test.doctor " always match the same account.
     [HttpPost("login/doctor")]
     public async Task<ActionResult<LoginResponse>> LoginDoctor(DoctorLoginRequest req)
     {
-        var doctor = await _db.Doctors.FirstOrDefaultAsync(d => d.Username == req.Username);
+        var username = req.Username.Trim().ToLowerInvariant();
+        var doctor = await _db.Doctors.FirstOrDefaultAsync(d => d.Username == username);
         if (doctor == null || !BCrypt.Net.BCrypt.Verify(req.Password, doctor.PasswordHash))
             return Unauthorized(new { error = "Incorrect username or password." });
 
@@ -56,11 +58,12 @@ public class AuthController : ControllerBase
     }
 
     // Patient signs in with a private username (set at registration) — never a public
-    // dropdown of every patient's name.
+    // dropdown of every patient's name. Same normalization as doctor login above.
     [HttpPost("login/patient")]
     public async Task<ActionResult<LoginResponse>> LoginPatient(PatientLoginRequest req)
     {
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Username == req.Username);
+        var username = req.Username.Trim().ToLowerInvariant();
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Username == username);
         if (patient == null || !BCrypt.Net.BCrypt.Verify(req.Password, patient.PasswordHash))
             return Unauthorized(new { error = "Incorrect username or password." });
 
