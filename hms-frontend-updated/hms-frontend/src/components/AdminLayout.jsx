@@ -41,7 +41,7 @@ export default function AdminLayout() {
 
   return (
     <ProtectedRoute allow={["admin", "frontdesk"]}>
-      <div className="flex min-h-screen bg-paper">
+      <div className="flex flex-col lg:flex-row min-h-screen bg-paper">
         <Sidebar
           navItems={navItems}
           roleLabel={isFrontDesk ? "Front Desk" : "Administrator"}

@@ -77,14 +77,14 @@ export default function Patients() {
           </div>
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-mint text-ink border border-mint-dark/60 px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-mint-dark transition-colors"
+            className="flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors"
           >
             <Plus size={15} /> Register patient
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b border-line bg-paper-dim/40">
                 {["Patient ID", "Name", "Age / Gender", "Phone", "Department", "Last Visit", "Status", ""].map((h) => (
@@ -217,7 +217,7 @@ export default function Patients() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 rounded-lg bg-mint text-ink border border-mint-dark/60 text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-60"
+                  className="flex-1 py-2.5 rounded-lg bg-ink text-white text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
                 >
                   {submitting ? (editingId ? "Saving…" : "Registering…") : editingId ? "Save changes" : "Register patient"}
                 </button>

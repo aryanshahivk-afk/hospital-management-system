@@ -135,14 +135,14 @@ export default function Appointments() {
           </div>
           <button
             onClick={openModal}
-            className="flex items-center gap-2 bg-mint text-ink border border-mint-dark/60 px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-mint-dark transition-colors shrink-0"
+            className="flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors shrink-0"
           >
             <Plus size={15} /> New appointment
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b border-line bg-paper-dim/40">
                 {["ID", "Patient", "Doctor", "Date", "Time", "Type", "Status", ""].map((h) => (
@@ -273,7 +273,7 @@ export default function Appointments() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 rounded-lg bg-mint text-ink border border-mint-dark/60 text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-60"
+              className="flex-1 py-2.5 rounded-lg bg-ink text-white text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
             >
               {submitting ? (editingId ? "Saving…" : "Scheduling…") : editingId ? "Save changes" : "Schedule appointment"}
             </button>

@@ -39,8 +39,8 @@ export default function DoctorAppointments() {
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-line bg-white text-[13px] placeholder:text-slate-soft focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
           />
         </div>
-        <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b border-line bg-paper-dim/40">
                 {["ID", "Patient", "Date", "Time", "Type", "Status", ""].map((h) => (

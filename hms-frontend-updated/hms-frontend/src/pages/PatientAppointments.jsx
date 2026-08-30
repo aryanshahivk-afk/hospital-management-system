@@ -13,8 +13,8 @@ export default function PatientAppointments() {
       <Topbar title="My Appointments" subtitle={`${mine.length} appointments on record`} />
 
       <div className="p-8">
-        <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b border-line bg-paper-dim/40">
                 {["ID", "Doctor", "Date", "Time", "Type", "Status"].map((h) => (

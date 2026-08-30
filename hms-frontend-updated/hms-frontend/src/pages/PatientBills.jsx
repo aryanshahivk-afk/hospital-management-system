@@ -64,8 +64,8 @@ export default function PatientBills() {
       <Topbar title="My Bills" subtitle={`${mine.length} bills on record`} />
 
       <div className="p-8">
-        <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl border border-line overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b border-line bg-paper-dim/40">
                 {["Bill ID", "Date", "Amount", "Paid", "Balance", "Status", ""].map((h) => (
@@ -177,7 +177,7 @@ export default function PatientBills() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-mint text-ink border border-mint-dark/60 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-60"
+              className="w-full bg-ink text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
             >
               {submitting ? "Submitting…" : "Submit application"}
             </button>

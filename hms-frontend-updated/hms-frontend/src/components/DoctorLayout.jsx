@@ -15,7 +15,7 @@ export default function DoctorLayout() {
   const { user } = useAuth();
   return (
     <ProtectedRoute allow={["doctor"]}>
-      <div className="flex min-h-screen bg-paper">
+      <div className="flex flex-col lg:flex-row min-h-screen bg-paper">
         <Sidebar navItems={navItems} roleLabel="Doctor" userSub={user?.specialty} />
         <div className="flex-1 min-w-0 flex flex-col">
           <Outlet />

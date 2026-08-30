@@ -14,7 +14,7 @@ const navItems = [
 export default function PatientLayout() {
   return (
     <ProtectedRoute allow={["patient"]}>
-      <div className="flex min-h-screen bg-paper">
+      <div className="flex flex-col lg:flex-row min-h-screen bg-paper">
         <Sidebar navItems={navItems} roleLabel="Patient Portal" userSub="Your records" />
         <div className="flex-1 min-w-0 flex flex-col">
           <Outlet />
