@@ -40,12 +40,20 @@ public class DoctorsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Doctor>> Create(CreateDoctorRequest req)
     {
+        var username = req.Username.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest(new { error = "Username is required." });
+        if (await _db.Doctors.AnyAsync(d => d.Username == username))
+            return BadRequest(new { error = $"Username \"{username}\" is already taken." });
+
         var doctor = new Doctor
         {
             Id = await _ids.NextAsync("DR", 200),
             Name = req.Name,
             Specialty = req.Specialty,
             Phone = req.Phone,
+            Username = username,
+            MustChangePassword = string.IsNullOrWhiteSpace(req.Password),
             PatientsToday = 0,
             Status = "Available",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrWhiteSpace(req.Password) ? "doctor123" : req.Password),

@@ -58,6 +58,13 @@ public class PatientsController : ControllerBase
     public async Task<ActionResult<Patient>> Create(CreatePatientRequest req)
     {
         var role = User.FindFirstValue(ClaimTypes.Role) ?? "Admin";
+
+        var username = req.Username.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest(new { error = "Username is required." });
+        if (await _db.Patients.AnyAsync(p => p.Username == username))
+            return BadRequest(new { error = $"Username \"{username}\" is already taken." });
+
         var patient = new Patient
         {
             Id = await _ids.NextAsync("PT", 1000),
@@ -67,6 +74,8 @@ public class PatientsController : ControllerBase
             Phone = req.Phone,
             Department = req.Department,
             DoctorId = req.DoctorId,
+            Username = username,
+            MustChangePassword = string.IsNullOrWhiteSpace(req.Password),
             LastVisit = DateTime.UtcNow.ToString("yyyy-MM-dd"),
             Status = "Outpatient",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrWhiteSpace(req.Password) ? "patient123" : req.Password),

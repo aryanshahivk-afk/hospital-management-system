@@ -45,7 +45,9 @@ public class AppDbContext : DbContext
         }
 
         b.Entity<Doctor>().HasKey(x => x.Id);
+        b.Entity<Doctor>().HasIndex(x => x.Username).IsUnique();
         b.Entity<Patient>().HasKey(x => x.Id);
+        b.Entity<Patient>().HasIndex(x => x.Username).IsUnique();
         b.Entity<Patient>()
             .HasOne(p => p.Doctor)
             .WithMany(d => d.Patients)

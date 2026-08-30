@@ -2,23 +2,20 @@ namespace HMS.Api.DTOs;
 
 // ---------- Auth ----------
 public record AdminLoginRequest(string Username, string Password);
-public record DoctorLoginRequest(string DoctorId, string Password);
-public record PatientLoginRequest(string PatientId, string Password);
+// Doctor/Patient now log in with a private Username, same shape as Admin/FrontDesk —
+// no more picking your name off a list anyone could see before signing in.
+public record DoctorLoginRequest(string Username, string Password);
+public record PatientLoginRequest(string Username, string Password);
 
 public record LoginResponse(string Token, UserDto User);
 public record UserDto(string Role, string Name, string? Title, string? RefId);
 
-// Public, password-free lists for the login dropdowns
-public record LoginOptionDto(string Id, string Name);
-public record DoctorLoginOptionDto(string Id, string Name, string Specialty);
-public record LoginOptionsDto(List<DoctorLoginOptionDto> Doctors, List<LoginOptionDto> Patients);
-
 // ---------- Patients ----------
-public record CreatePatientRequest(string Name, int Age, string Gender, string Phone, string Department, string? DoctorId, string? Password);
+public record CreatePatientRequest(string Name, int Age, string Gender, string Phone, string Department, string? DoctorId, string Username, string? Password);
 public record UpdatePatientRequest(string Name, int Age, string Gender, string Phone, string Department, string? DoctorId);
 
 // ---------- Doctors ----------
-public record CreateDoctorRequest(string Name, string Specialty, string Phone, string? Password);
+public record CreateDoctorRequest(string Name, string Specialty, string Phone, string Username, string? Password);
 public record UpdateDoctorRequest(string Name, string Specialty, string Phone, string Status);
 
 // ---------- Appointments ----------

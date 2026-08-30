@@ -40,36 +40,29 @@ public class AuthController : ControllerBase
         return Ok(new LoginResponse(token, new UserDto(appRole, account.Name, account.Title, null)));
     }
 
-    // Doctor picks their name from a dropdown (see /api/auth/doctor-options), then enters password.
+    // Doctor signs in with a private username (set by Admin at registration) — never a
+    // public dropdown of every doctor's name.
     [HttpPost("login/doctor")]
     public async Task<ActionResult<LoginResponse>> LoginDoctor(DoctorLoginRequest req)
     {
-        var doctor = await _db.Doctors.FirstOrDefaultAsync(d => d.Id == req.DoctorId);
+        var doctor = await _db.Doctors.FirstOrDefaultAsync(d => d.Username == req.Username);
         if (doctor == null || !BCrypt.Net.BCrypt.Verify(req.Password, doctor.PasswordHash))
-            return Unauthorized(new { error = "Incorrect password." });
+            return Unauthorized(new { error = "Incorrect username or password." });
 
         var token = _jwt.GenerateToken(doctor.Id, doctor.Name, "Doctor", doctor.Id);
         return Ok(new LoginResponse(token, new UserDto("doctor", doctor.Name, doctor.Specialty, doctor.Id)));
     }
 
-    // Patient picks their name from a dropdown (see /api/auth/patient-options), then enters password.
+    // Patient signs in with a private username (set at registration) — never a public
+    // dropdown of every patient's name.
     [HttpPost("login/patient")]
     public async Task<ActionResult<LoginResponse>> LoginPatient(PatientLoginRequest req)
     {
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Id == req.PatientId);
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Username == req.Username);
         if (patient == null || !BCrypt.Net.BCrypt.Verify(req.Password, patient.PasswordHash))
-            return Unauthorized(new { error = "Incorrect password." });
+            return Unauthorized(new { error = "Incorrect username or password." });
 
         var token = _jwt.GenerateToken(patient.Id, patient.Name, "Patient", patient.Id);
         return Ok(new LoginResponse(token, new UserDto("patient", patient.Name, patient.Id, patient.Id)));
-    }
-
-    // Password-free lists so the login screen can populate its dropdowns.
-        [HttpGet("login-options")]
-    public async Task<ActionResult<LoginOptionsDto>> LoginOptions()
-    {
-        var doctors = await _db.Doctors.Select(d => new DoctorLoginOptionDto(d.Id, d.Name, d.Specialty)).ToListAsync();
-        var patients = await _db.Patients.Select(p => new LoginOptionDto(p.Id, p.Name)).ToListAsync();
-        return Ok(new LoginOptionsDto(doctors, patients));
     }
 }

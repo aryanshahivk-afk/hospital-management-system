@@ -11,6 +11,12 @@ public class Doctor
     public int PatientsToday { get; set; }
     public string Status { get; set; } = "Available"; // Available | In Surgery | Off Duty
 
+    // Private login handle, set at registration time by Admin — never exposed in any
+    // public/unauthenticated listing. Replaces the old "pick your name from a dropdown"
+    // login, which leaked every doctor's full name to anyone visiting the login page.
+    public string Username { get; set; } = default!;
+    public bool MustChangePassword { get; set; } = true;
+
     [JsonIgnore] public string PasswordHash { get; set; } = default!;
     [JsonIgnore] public ICollection<Patient> Patients { get; set; } = new List<Patient>();
 }
@@ -26,6 +32,11 @@ public class Patient
     public string? DoctorId { get; set; }
     public string LastVisit { get; set; } = default!; // ISO date string, kept as string to match frontend
     public string Status { get; set; } = "Outpatient"; // Admitted | Discharged | Outpatient
+
+    // Private login handle, set at registration time by Front Desk/Admin — never exposed
+    // in any public/unauthenticated listing (same reasoning as Doctor.Username above).
+    public string Username { get; set; } = default!;
+    public bool MustChangePassword { get; set; } = true;
 
     [JsonIgnore] public Doctor? Doctor { get; set; }
     [JsonIgnore] public string PasswordHash { get; set; } = default!;

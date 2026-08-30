@@ -47,10 +47,10 @@ public static class DbSeeder
         {
             var doctorPw = BCrypt.Net.BCrypt.HashPassword("doctor123");
             db.Doctors.AddRange(
-                new Doctor { Id = "DR-201", Name = "Dr. Sabina Basnet", Specialty = "Cardiology", Phone = "970-112-0021", PatientsToday = 8, Status = "Available", PasswordHash = doctorPw },
-                new Doctor { Id = "DR-202", Name = "Dr. Arjun Karki", Specialty = "Orthopedics", Phone = "970-334-9012", PatientsToday = 5, Status = "In Surgery", PasswordHash = doctorPw },
-                new Doctor { Id = "DR-203", Name = "Dr. Manisha Poudel", Specialty = "General Medicine", Phone = "970-556-4423", PatientsToday = 12, Status = "Available", PasswordHash = doctorPw },
-                new Doctor { Id = "DR-204", Name = "Dr. Rajan Shakya", Specialty = "ENT", Phone = "970-778-6634", PatientsToday = 3, Status = "Off Duty", PasswordHash = doctorPw }
+                new Doctor { Id = "DR-201", Name = "Dr. Sabina Basnet", Specialty = "Cardiology", Phone = "970-112-0021", PatientsToday = 8, Status = "Available", Username = "sabina.basnet", MustChangePassword = false, PasswordHash = doctorPw },
+                new Doctor { Id = "DR-202", Name = "Dr. Arjun Karki", Specialty = "Orthopedics", Phone = "970-334-9012", PatientsToday = 5, Status = "In Surgery", Username = "arjun.karki", MustChangePassword = false, PasswordHash = doctorPw },
+                new Doctor { Id = "DR-203", Name = "Dr. Manisha Poudel", Specialty = "General Medicine", Phone = "970-556-4423", PatientsToday = 12, Status = "Available", Username = "manisha.poudel", MustChangePassword = false, PasswordHash = doctorPw },
+                new Doctor { Id = "DR-204", Name = "Dr. Rajan Shakya", Specialty = "ENT", Phone = "970-778-6634", PatientsToday = 3, Status = "Off Duty", Username = "rajan.shakya", MustChangePassword = false, PasswordHash = doctorPw }
             );
         }
 
@@ -68,12 +68,12 @@ public static class DbSeeder
         {
             var patientPw = BCrypt.Net.BCrypt.HashPassword("patient123");
             db.Patients.AddRange(
-                new Patient { Id = "PT-1042", Name = "Sujata Koirala", Age = 34, Gender = "Female", Phone = "980-112-4456", Department = "Cardiology", DoctorId = "DR-201", LastVisit = "2026-07-28", Status = "Admitted", PasswordHash = patientPw },
-                new Patient { Id = "PT-1041", Name = "Bikash Thapa", Age = 51, Gender = "Male", Phone = "981-223-9981", Department = "Orthopedics", DoctorId = "DR-202", LastVisit = "2026-07-26", Status = "Discharged", PasswordHash = patientPw },
-                new Patient { Id = "PT-1040", Name = "Anita Rai", Age = 27, Gender = "Female", Phone = "984-556-2210", Department = "General Medicine", DoctorId = "DR-203", LastVisit = "2026-07-25", Status = "Outpatient", PasswordHash = patientPw },
-                new Patient { Id = "PT-1039", Name = "Ramesh Yadav", Age = 63, Gender = "Male", Phone = "985-778-3312", Department = "Cardiology", DoctorId = "DR-201", LastVisit = "2026-07-22", Status = "Admitted", PasswordHash = patientPw },
-                new Patient { Id = "PT-1038", Name = "Nirmala Shrestha", Age = 45, Gender = "Female", Phone = "986-441-7765", Department = "ENT", DoctorId = "DR-204", LastVisit = "2026-07-20", Status = "Discharged", PasswordHash = patientPw },
-                new Patient { Id = "PT-1037", Name = "Prakash Limbu", Age = 39, Gender = "Male", Phone = "982-334-5590", Department = "Orthopedics", DoctorId = "DR-202", LastVisit = "2026-07-18", Status = "Outpatient", PasswordHash = patientPw }
+                new Patient { Id = "PT-1042", Name = "Sujata Koirala", Age = 34, Gender = "Female", Phone = "980-112-4456", Department = "Cardiology", DoctorId = "DR-201", LastVisit = "2026-07-28", Status = "Admitted", Username = "sujata.koirala", MustChangePassword = false, PasswordHash = patientPw },
+                new Patient { Id = "PT-1041", Name = "Bikash Thapa", Age = 51, Gender = "Male", Phone = "981-223-9981", Department = "Orthopedics", DoctorId = "DR-202", LastVisit = "2026-07-26", Status = "Discharged", Username = "bikash.thapa", MustChangePassword = false, PasswordHash = patientPw },
+                new Patient { Id = "PT-1040", Name = "Anita Rai", Age = 27, Gender = "Female", Phone = "984-556-2210", Department = "General Medicine", DoctorId = "DR-203", LastVisit = "2026-07-25", Status = "Outpatient", Username = "anita.rai", MustChangePassword = false, PasswordHash = patientPw },
+                new Patient { Id = "PT-1039", Name = "Ramesh Yadav", Age = 63, Gender = "Male", Phone = "985-778-3312", Department = "Cardiology", DoctorId = "DR-201", LastVisit = "2026-07-22", Status = "Admitted", Username = "ramesh.yadav", MustChangePassword = false, PasswordHash = patientPw },
+                new Patient { Id = "PT-1038", Name = "Nirmala Shrestha", Age = 45, Gender = "Female", Phone = "986-441-7765", Department = "ENT", DoctorId = "DR-204", LastVisit = "2026-07-20", Status = "Discharged", Username = "nirmala.shrestha", MustChangePassword = false, PasswordHash = patientPw },
+                new Patient { Id = "PT-1037", Name = "Prakash Limbu", Age = 39, Gender = "Male", Phone = "982-334-5590", Department = "Orthopedics", DoctorId = "DR-202", LastVisit = "2026-07-18", Status = "Outpatient", Username = "prakash.limbu", MustChangePassword = false, PasswordHash = patientPw }
             );
         }
 
@@ -156,7 +156,7 @@ public static class DbSeeder
             db.IdCounters.AddRange(
                 new IdCounter { Prefix = "PT", Value = 1042 },
                 new IdCounter { Prefix = "DR", Value = 204 },
-                new IdCounter { Prefix = "AP", Value = 3306 },
+                new IdCounter { Prefix = "AP", Value = 3305 },
                 new IdCounter { Prefix = "BL", Value = 5501 },
                 new IdCounter { Prefix = "EMI", Value = 902 },
                 new IdCounter { Prefix = "RPT", Value = 704 }
