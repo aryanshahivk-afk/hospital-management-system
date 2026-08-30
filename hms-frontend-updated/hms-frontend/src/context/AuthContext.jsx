@@ -34,12 +34,15 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
+  // Every login function returns { ok, user } (not just ok) so the Login page can
+  // decide immediately whether to route to /change-password, without waiting on a
+  // separate render for context state to catch up.
   const loginAdmin = useCallback(async (username, password) => {
     try {
       const { token, user: apiUser } = await loginAdminApi(username, password);
       setToken(token);
       setUser(apiUser);
-      return { ok: true };
+      return { ok: true, user: apiUser };
     } catch (err) {
       return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
@@ -50,20 +53,18 @@ export function AuthProvider({ children }) {
       const { token, user: apiUser } = await loginFrontDeskApi(username, password);
       setToken(token);
       setUser(apiUser);
-      return { ok: true };
+      return { ok: true, user: apiUser };
     } catch (err) {
       return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
   }, []);
 
-  // Doctor/Patient now sign in with a private username, same shape as Admin/FrontDesk —
-  // no more selecting a name off a publicly visible list.
   const loginDoctor = useCallback(async (username, password) => {
     try {
       const { token, user: apiUser } = await loginDoctorApi(username, password);
       setToken(token);
       setUser(apiUser);
-      return { ok: true };
+      return { ok: true, user: apiUser };
     } catch (err) {
       return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
@@ -74,10 +75,16 @@ export function AuthProvider({ children }) {
       const { token, user: apiUser } = await loginPatientApi(username, password);
       setToken(token);
       setUser(apiUser);
-      return { ok: true };
+      return { ok: true, user: apiUser };
     } catch (err) {
       return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
+  }, []);
+
+  // Called after a successful forced password change, so the rest of the app
+  // immediately stops treating this session as needing one.
+  const clearMustChangePassword = useCallback(() => {
+    setUser((u) => (u ? { ...u, mustChangePassword: false } : u));
   }, []);
 
   const logout = useCallback(() => {
@@ -93,6 +100,7 @@ export function AuthProvider({ children }) {
         loginFrontDesk,
         loginDoctor,
         loginPatient,
+        clearMustChangePassword,
         logout,
       }}
     >

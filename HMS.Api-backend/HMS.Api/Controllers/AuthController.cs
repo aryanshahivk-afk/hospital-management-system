@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using HMS.Api.Data;
 using HMS.Api.DTOs;
 using HMS.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,7 +52,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Incorrect username or password." });
 
         var token = _jwt.GenerateToken(doctor.Id, doctor.Name, "Doctor", doctor.Id);
-        return Ok(new LoginResponse(token, new UserDto("doctor", doctor.Name, doctor.Specialty, doctor.Id)));
+        return Ok(new LoginResponse(token, new UserDto("doctor", doctor.Name, doctor.Specialty, doctor.Id, doctor.MustChangePassword)));
     }
 
     // Patient signs in with a private username (set at registration) — never a public
@@ -63,6 +65,46 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Incorrect username or password." });
 
         var token = _jwt.GenerateToken(patient.Id, patient.Name, "Patient", patient.Id);
-        return Ok(new LoginResponse(token, new UserDto("patient", patient.Name, patient.Id, patient.Id)));
+        return Ok(new LoginResponse(token, new UserDto("patient", patient.Name, patient.Id, patient.Id, patient.MustChangePassword)));
+    }
+
+    // Called right after login when the account was created with no explicit password
+    // (MustChangePassword = true), forcing a real password before the account is used
+    // for anything else. Works for both Doctor and Patient sessions off the same token.
+    [HttpPost("change-password")]
+    [Authorize(Roles = "Doctor,Patient")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 6)
+            return BadRequest(new { error = "New password must be at least 6 characters." });
+
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var refId = User.FindFirstValue("refId");
+        if (string.IsNullOrEmpty(refId))
+            return Unauthorized();
+
+        var newHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
+
+        if (role == "Doctor")
+        {
+            var doctor = await _db.Doctors.FindAsync(refId);
+            if (doctor == null) return NotFound();
+            doctor.PasswordHash = newHash;
+            doctor.MustChangePassword = false;
+        }
+        else if (role == "Patient")
+        {
+            var patient = await _db.Patients.FindAsync(refId);
+            if (patient == null) return NotFound();
+            patient.PasswordHash = newHash;
+            patient.MustChangePassword = false;
+        }
+        else
+        {
+            return Forbid();
+        }
+
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }

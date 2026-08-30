@@ -59,7 +59,11 @@ export default function Login() {
       }
 
       if (result.ok) {
-        navigate(TABS.find((t) => t.key === tab).home);
+        if (result.user?.mustChangePassword) {
+          navigate("/change-password", { state: { home: TABS.find((t) => t.key === tab).home } });
+        } else {
+          navigate(TABS.find((t) => t.key === tab).home);
+        }
       } else {
         setError(result.error);
       }

@@ -8,7 +8,8 @@ public record DoctorLoginRequest(string Username, string Password);
 public record PatientLoginRequest(string Username, string Password);
 
 public record LoginResponse(string Token, UserDto User);
-public record UserDto(string Role, string Name, string? Title, string? RefId);
+public record UserDto(string Role, string Name, string? Title, string? RefId, bool MustChangePassword = false);
+public record ChangePasswordRequest(string NewPassword);
 
 // ---------- Patients ----------
 public record CreatePatientRequest(string Name, int Age, string Gender, string Phone, string Department, string? DoctorId, string Username, string? Password);
