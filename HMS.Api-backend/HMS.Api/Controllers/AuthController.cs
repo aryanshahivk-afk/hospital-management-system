@@ -65,11 +65,11 @@ public class AuthController : ControllerBase
     }
 
     // Password-free lists so the login screen can populate its dropdowns.
-    [HttpGet("doctor-options")]
-    public async Task<ActionResult<List<DoctorLoginOptionDto>>> DoctorOptions() =>
-        Ok(await _db.Doctors.Select(d => new DoctorLoginOptionDto(d.Id, d.Name, d.Specialty)).ToListAsync());
-
-    [HttpGet("patient-options")]
-    public async Task<ActionResult<List<LoginOptionDto>>> PatientOptions() =>
-        Ok(await _db.Patients.Select(p => new LoginOptionDto(p.Id, p.Name)).ToListAsync());
+        [HttpGet("login-options")]
+    public async Task<ActionResult<LoginOptionsDto>> LoginOptions()
+    {
+        var doctors = await _db.Doctors.Select(d => new DoctorLoginOptionDto(d.Id, d.Name, d.Specialty)).ToListAsync();
+        var patients = await _db.Patients.Select(p => new LoginOptionDto(p.Id, p.Name)).ToListAsync();
+        return Ok(new LoginOptionsDto(doctors, patients));
+    }
 }

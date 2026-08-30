@@ -1,7 +1,6 @@
 import { api } from "./client";
 
-export const getDoctorOptions = () => api.get("/auth/doctor-options", { auth: false });
-export const getPatientOptions = () => api.get("/auth/patient-options", { auth: false });
+export const getLoginOptions = () => api.get("/auth/login-options", { auth: false });
 
 export const loginAdminApi = (username, password) =>
   api.post("/auth/login/admin", { username, password }, { auth: false });

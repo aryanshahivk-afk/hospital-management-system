@@ -1,7 +1,12 @@
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import {
-  getDoctorOptions,
-  getPatientOptions,
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import {
+  getLoginOptions,
   loginAdminApi,
   loginFrontDeskApi,
   loginDoctorApi,
@@ -34,12 +39,14 @@ export function AuthProvider({ children }) {
   const loadLoginOptions = useCallback(async () => {
     try {
       setOptionsError("");
-      const [doctors, patients] = await Promise.all([getDoctorOptions(), getPatientOptions()]);
+      const { doctors, patients } = await getLoginOptions();
       setDoctorOptions(doctors);
       setPatientOptions(patients);
     } catch (err) {
       setOptionsError(
-        err instanceof ApiError ? err.message : "Couldn't load the login list. Is the backend running?"
+        err instanceof ApiError
+          ? err.message
+          : "Couldn't load the login list. Is the backend running?",
       );
     }
   }, []);
@@ -64,42 +71,63 @@ export function AuthProvider({ children }) {
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
+      return {
+        ok: false,
+        error: err instanceof ApiError ? err.message : "Sign in failed.",
+      };
     }
   }, []);
 
   const loginFrontDesk = useCallback(async (username, password) => {
     try {
-      const { token, user: apiUser } = await loginFrontDeskApi(username, password);
+      const { token, user: apiUser } = await loginFrontDeskApi(
+        username,
+        password,
+      );
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
+      return {
+        ok: false,
+        error: err instanceof ApiError ? err.message : "Sign in failed.",
+      };
     }
   }, []);
 
   const loginDoctor = useCallback(async (doctor, password) => {
     if (!doctor) return { ok: false, error: "Select your name to continue." };
     try {
-      const { token, user: apiUser } = await loginDoctorApi(doctor.id, password);
+      const { token, user: apiUser } = await loginDoctorApi(
+        doctor.id,
+        password,
+      );
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
+      return {
+        ok: false,
+        error: err instanceof ApiError ? err.message : "Sign in failed.",
+      };
     }
   }, []);
 
   const loginPatient = useCallback(async (patient, password) => {
     if (!patient) return { ok: false, error: "Select your name to continue." };
     try {
-      const { token, user: apiUser } = await loginPatientApi(patient.id, password);
+      const { token, user: apiUser } = await loginPatientApi(
+        patient.id,
+        password,
+      );
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
+      return {
+        ok: false,
+        error: err instanceof ApiError ? err.message : "Sign in failed.",
+      };
     }
   }, []);
 

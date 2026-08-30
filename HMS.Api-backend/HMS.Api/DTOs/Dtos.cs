@@ -11,6 +11,7 @@ public record UserDto(string Role, string Name, string? Title, string? RefId);
 // Public, password-free lists for the login dropdowns
 public record LoginOptionDto(string Id, string Name);
 public record DoctorLoginOptionDto(string Id, string Name, string Specialty);
+public record LoginOptionsDto(List<DoctorLoginOptionDto> Doctors, List<LoginOptionDto> Patients);
 
 // ---------- Patients ----------
 public record CreatePatientRequest(string Name, int Age, string Gender, string Phone, string Department, string? DoctorId, string? Password);
