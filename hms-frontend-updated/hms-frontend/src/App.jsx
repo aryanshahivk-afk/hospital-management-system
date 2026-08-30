@@ -8,6 +8,7 @@ import PatientLayout from "./components/PatientLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
+import ChangePassword from "./pages/ChangePassword";
 
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
@@ -39,6 +40,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ChangePassword />} />
 
             {/* Shared back-office shell — Admin sees everything; Front Desk sees a
                 reduced sidebar (set inside AdminLayout). Admin-exclusive pages are
