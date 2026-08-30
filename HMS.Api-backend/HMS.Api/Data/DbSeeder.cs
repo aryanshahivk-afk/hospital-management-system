@@ -156,7 +156,7 @@ public static class DbSeeder
             db.IdCounters.AddRange(
                 new IdCounter { Prefix = "PT", Value = 1042 },
                 new IdCounter { Prefix = "DR", Value = 204 },
-                new IdCounter { Prefix = "AP", Value = 3305 },
+                new IdCounter { Prefix = "AP", Value = 3306 },
                 new IdCounter { Prefix = "BL", Value = 5501 },
                 new IdCounter { Prefix = "EMI", Value = 902 },
                 new IdCounter { Prefix = "RPT", Value = 704 }
