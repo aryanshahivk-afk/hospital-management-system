@@ -8,7 +8,7 @@ import { useData } from "../context/DataContext";
 
 const SPECIALTIES = ["Cardiology", "Orthopedics", "General Medicine", "ENT"];
 
-const emptyForm = { name: "", specialty: SPECIALTIES[0], phone: "", status: "Available" };
+const emptyForm = { name: "", specialty: SPECIALTIES[0], phone: "", status: "Available", username: "" };
 
 export default function Doctors() {
   const { doctors, addDoctor, updateDoctor } = useData();
@@ -47,7 +47,7 @@ export default function Doctors() {
     setSubmitting(true);
     setFormError("");
     const name = form.name.trim().startsWith("Dr.") ? form.name.trim() : `Dr. ${form.name.trim()}`;
-    const payload = { name, specialty: form.specialty, phone: form.phone, status: form.status };
+    const payload = { name, specialty: form.specialty, phone: form.phone, status: form.status, username: form.username.trim().toLowerCase() };
     const result = editingId ? await updateDoctor(editingId, payload) : await addDoctor(payload);
     setSubmitting(false);
     if (!result.ok) {
@@ -74,7 +74,7 @@ export default function Doctors() {
           </div>
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-mint text-ink border border-mint-dark/60 px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-mint-dark transition-colors shrink-0"
+            className="flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors shrink-0"
           >
             <Plus size={15} /> Add doctor
           </button>
@@ -143,6 +143,19 @@ export default function Doctors() {
             />
             <p className="text-[11px] text-slate-soft mt-1">"Dr." is added automatically if you leave it off.</p>
           </div>
+          {!editingId && (
+            <div>
+              <label className="block text-[12.5px] font-medium text-slate mb-1.5">Login username</label>
+              <input
+                required
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                placeholder="e.g. suman.adhikari"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+              />
+              <p className="text-[11px] text-slate-soft mt-1">Private — used only for this doctor to sign in.</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[12.5px] font-medium text-slate mb-1.5">Specialty</label>
@@ -180,7 +193,7 @@ export default function Doctors() {
 
           {!editingId && (
             <div className="bg-paper-dim/60 rounded-lg px-4 py-3 text-[12px] text-slate-soft">
-              The new doctor can sign in from the Doctor tab on the login page (password: <span className="font-mono">doctor123</span>).
+              The new doctor can sign in from the Doctor tab on the login page with the username above (default password: <span className="font-mono">doctor123</span>).
             </div>
           )}
 
@@ -197,7 +210,7 @@ export default function Doctors() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 rounded-lg bg-mint text-ink border border-mint-dark/60 text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-60"
+              className="flex-1 py-2.5 rounded-lg bg-ink text-white text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
             >
               {submitting ? (editingId ? "Saving…" : "Adding…") : editingId ? "Save changes" : "Add doctor"}
             </button>

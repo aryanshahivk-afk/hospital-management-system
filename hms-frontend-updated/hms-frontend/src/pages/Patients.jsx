@@ -6,7 +6,7 @@ import { StatusPill } from "../components/ui";
 import { useData } from "../context/DataContext";
 
 const DEPARTMENTS = ["Cardiology", "Orthopedics", "General Medicine", "ENT"];
-const emptyForm = { name: "", age: "", gender: "Female", phone: "", department: DEPARTMENTS[0], doctorId: undefined };
+const emptyForm = { name: "", age: "", gender: "Female", phone: "", department: DEPARTMENTS[0], doctorId: undefined, username: "" };
 
 export default function Patients() {
   const { patients, doctors, addPatient, updatePatient } = useData();
@@ -50,6 +50,7 @@ export default function Patients() {
       phone: form.phone,
       department: form.department,
       doctorId: form.doctorId,
+      username: form.username.trim().toLowerCase(),
     };
     const result = editingId ? await updatePatient(editingId, payload) : await addPatient(payload);
     setSubmitting(false);
@@ -148,6 +149,21 @@ export default function Patients() {
                   placeholder="e.g. Sita Gurung"
                 />
               </div>
+              {!editingId && (
+                <div>
+                  <label className="block text-[12.5px] font-medium text-slate mb-1.5">Login username</label>
+                  <input
+                    required
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+                    placeholder="e.g. sita.gurung"
+                  />
+                  <p className="text-[11px] text-slate-soft mt-1">
+                    This is private — used only for the patient to sign in. Default password: <span className="font-mono">patient123</span>.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[12.5px] font-medium text-slate mb-1.5">Age</label>

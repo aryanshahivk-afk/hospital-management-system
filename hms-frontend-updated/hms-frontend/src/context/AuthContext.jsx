@@ -1,12 +1,5 @@
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-} from "react";
-import {
-  getLoginOptions,
   loginAdminApi,
   loginFrontDeskApi,
   loginDoctorApi,
@@ -31,29 +24,6 @@ export function AuthProvider({ children }) {
   // Restore the logged-in session on refresh instead of bouncing back to /login.
   // Session is only trusted if we also still have a JWT — otherwise force re-login.
   const [user, setUser] = useState(() => (getToken() ? loadSession() : null));
-  const [doctorOptions, setDoctorOptions] = useState([]);
-  const [patientOptions, setPatientOptions] = useState([]);
-  const [optionsError, setOptionsError] = useState("");
-
-  // Password-free dropdown lists for the login screen — fetched once, unauthenticated.
-  const loadLoginOptions = useCallback(async () => {
-    try {
-      setOptionsError("");
-      const { doctors, patients } = await getLoginOptions();
-      setDoctorOptions(doctors);
-      setPatientOptions(patients);
-    } catch (err) {
-      setOptionsError(
-        err instanceof ApiError
-          ? err.message
-          : "Couldn't load the login list. Is the backend running?",
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    loadLoginOptions();
-  }, [loadLoginOptions]);
 
   useEffect(() => {
     try {
@@ -71,73 +41,49 @@ export function AuthProvider({ children }) {
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof ApiError ? err.message : "Sign in failed.",
-      };
+      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
   }, []);
 
   const loginFrontDesk = useCallback(async (username, password) => {
     try {
-      const { token, user: apiUser } = await loginFrontDeskApi(
-        username,
-        password,
-      );
+      const { token, user: apiUser } = await loginFrontDeskApi(username, password);
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof ApiError ? err.message : "Sign in failed.",
-      };
+      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
   }, []);
 
-  const loginDoctor = useCallback(async (doctor, password) => {
-    if (!doctor) return { ok: false, error: "Select your name to continue." };
+  // Doctor/Patient now sign in with a private username, same shape as Admin/FrontDesk —
+  // no more selecting a name off a publicly visible list.
+  const loginDoctor = useCallback(async (username, password) => {
     try {
-      const { token, user: apiUser } = await loginDoctorApi(
-        doctor.id,
-        password,
-      );
+      const { token, user: apiUser } = await loginDoctorApi(username, password);
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof ApiError ? err.message : "Sign in failed.",
-      };
+      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
   }, []);
 
-  const loginPatient = useCallback(async (patient, password) => {
-    if (!patient) return { ok: false, error: "Select your name to continue." };
+  const loginPatient = useCallback(async (username, password) => {
     try {
-      const { token, user: apiUser } = await loginPatientApi(
-        patient.id,
-        password,
-      );
+      const { token, user: apiUser } = await loginPatientApi(username, password);
       setToken(token);
       setUser(apiUser);
       return { ok: true };
     } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof ApiError ? err.message : "Sign in failed.",
-      };
+      return { ok: false, error: err instanceof ApiError ? err.message : "Sign in failed." };
     }
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
-    // Refresh the login dropdown lists right away — otherwise a patient/doctor added
-    // during this session wouldn't show up until a manual page reload.
-    loadLoginOptions();
-  }, [loadLoginOptions]);
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -148,10 +94,6 @@ export function AuthProvider({ children }) {
         loginDoctor,
         loginPatient,
         logout,
-        doctorOptions,
-        patientOptions,
-        optionsError,
-        reloadLoginOptions: loadLoginOptions,
       }}
     >
       {children}

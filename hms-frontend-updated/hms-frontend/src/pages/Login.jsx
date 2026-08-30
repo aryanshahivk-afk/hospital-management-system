@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Cross,
@@ -25,39 +25,21 @@ const TABS = [
 
 export default function Login() {
   const navigate = useNavigate();
-  const { loginAdmin, loginFrontDesk, loginDoctor, loginPatient, doctorOptions, patientOptions, optionsError, reloadLoginOptions } = useAuth();
-  const doctors = doctorOptions;
-  const patients = patientOptions;
+  const { loginAdmin, loginFrontDesk, loginDoctor, loginPatient } = useAuth();
   const [tab, setTab] = useState("admin");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Belt-and-suspenders: refetch the dropdown lists whenever this screen is reached,
-  // so a patient/doctor added earlier in the session is never stale here.
-  useEffect(() => {
-    reloadLoginOptions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedId, setSelectedId] = useState("");
-
-  // Options load asynchronously from the API — default the dropdown once they arrive.
-  useEffect(() => {
-    if (tab === "doctor" && !selectedId && doctors[0]) setSelectedId(doctors[0].id);
-    if (tab === "patient" && !selectedId && patients[0]) setSelectedId(patients[0].id);
-  }, [doctors, patients, tab, selectedId]);
 
   function switchTab(key) {
     setTab(key);
     setPassword("");
     setError("");
     const t = TABS.find((x) => x.key === key);
-    if (t.defaultUsername) setUsername(t.defaultUsername);
-    if (key === "doctor") setSelectedId(doctors[0]?.id ?? "");
-    if (key === "patient") setSelectedId(patients[0]?.id ?? "");
+    setUsername(t.defaultUsername || "");
   }
 
   async function handleSubmit(e) {
@@ -71,11 +53,9 @@ export default function Login() {
       } else if (tab === "frontdesk") {
         result = await loginFrontDesk(username, password);
       } else if (tab === "doctor") {
-        const doctor = doctors.find((d) => d.id === selectedId);
-        result = await loginDoctor(doctor, password);
+        result = await loginDoctor(username, password);
       } else {
-        const patient = patients.find((p) => p.id === selectedId);
-        result = await loginPatient(patient, password);
+        result = await loginPatient(username, password);
       }
 
       if (result.ok) {
@@ -91,7 +71,7 @@ export default function Login() {
   const hint =
     tab === "admin" ? "admin / admin123" :
     tab === "frontdesk" ? "frontdesk / frontdesk123" :
-    tab === "doctor" ? "password: doctor123" : "password: patient123";
+    tab === "doctor" ? "sabina.basnet / doctor123" : "sujata.koirala / patient123";
 
   return (
     <div className="min-h-screen w-full flex bg-paper">
@@ -176,50 +156,22 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {(tab === "admin" || tab === "frontdesk") && (
-              <div>
-                <label className="block text-[12.5px] font-medium text-slate mb-1.5">Username</label>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={tab === "admin" ? "admin" : "frontdesk"}
-                  autoComplete="username"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
-                />
-              </div>
-            )}
-
-            {tab === "doctor" && (
-              <div>
-                <label className="block text-[12.5px] font-medium text-slate mb-1.5">Select your name</label>
-                <select
-                  value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
-                >
-                  {doctors.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name} · {d.specialty}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {tab === "patient" && (
-              <div>
-                <label className="block text-[12.5px] font-medium text-slate mb-1.5">Select your name</label>
-                <select
-                  value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
-                >
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} · {p.id}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-[12.5px] font-medium text-slate mb-1.5">Username</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={
+                  tab === "admin" ? "admin" :
+                  tab === "frontdesk" ? "frontdesk" :
+                  tab === "doctor" ? "e.g. sabina.basnet" : "e.g. sujata.koirala"
+                }
+                autoComplete="username"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+              />
+            </div>
 
             <div>
               <label className="block text-[12.5px] font-medium text-slate mb-1.5">Password</label>
@@ -245,9 +197,9 @@ export default function Login() {
               </div>
             </div>
 
-            {(error || optionsError) && (
+            {error && (
               <div className="flex items-center gap-2 text-[12.5px] text-danger bg-danger-light px-3 py-2 rounded-lg">
-                <AlertCircle size={14} className="shrink-0" /> {error || optionsError}
+                <AlertCircle size={14} className="shrink-0" /> {error}
               </div>
             )}
 
