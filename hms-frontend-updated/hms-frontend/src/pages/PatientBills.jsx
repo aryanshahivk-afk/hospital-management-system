@@ -1,10 +1,59 @@
 import { useState } from "react";
-import { Landmark, Info } from "lucide-react";
+import { Landmark, Info, Upload, FileCheck2, X as XIcon } from "lucide-react";
 import Topbar from "../components/Topbar";
 import Modal from "../components/Modal";
 import { StatusPill, formatNPR } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+
+const MAX_FILE_BYTES = 4 * 1024 * 1024; // 4MB per document
+
+// Reads a File into a base64 string (no data: prefix) plus its content type, for
+// sending straight to the backend as JSON — simplest reliable option given free-tier
+// hosting doesn't guarantee a persistent uploads folder across redeploys.
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result; // "data:<type>;base64,<data>"
+      const base64 = result.split(",")[1] || "";
+      resolve({ base64, contentType: file.type || "application/octet-stream" });
+    };
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function DocumentUploadField({ label, hint, file, onChange, onClear }) {
+  return (
+    <div>
+      <label className="block text-[12.5px] font-medium text-slate mb-1.5">{label}</label>
+      {!file ? (
+        <label className="flex items-center gap-2.5 border border-dashed border-line rounded-lg px-3.5 py-3 text-[12.5px] text-slate-soft hover:border-teal hover:text-teal cursor-pointer transition-colors">
+          <Upload size={15} />
+          <span>Click to upload a photo or scan (JPG, PNG, or PDF — under 4MB)</span>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            onChange={(e) => onChange(e.target.files?.[0] || null)}
+          />
+        </label>
+      ) : (
+        <div className="flex items-center justify-between gap-2.5 border border-line rounded-lg px-3.5 py-2.5 bg-teal-light/40">
+          <div className="flex items-center gap-2 min-w-0 text-[12.5px] text-ink">
+            <FileCheck2 size={15} className="text-teal shrink-0" />
+            <span className="truncate">{file.name}</span>
+          </div>
+          <button type="button" onClick={onClear} className="text-slate-soft hover:text-danger shrink-0">
+            <XIcon size={15} />
+          </button>
+        </div>
+      )}
+      {hint && <p className="text-[11px] text-slate-soft mt-1">{hint}</p>}
+    </div>
+  );
+}
 
 export default function PatientBills() {
   const { user } = useAuth();
@@ -16,6 +65,9 @@ export default function PatientBills() {
   const [fullLegalName, setFullLegalName] = useState(user.name || "");
   const [address, setAddress] = useState("");
   const [citizenshipNumber, setCitizenshipNumber] = useState("");
+  const [monthlyIncome, setMonthlyIncome] = useState("");
+  const [idFile, setIdFile] = useState(null);
+  const [incomeFile, setIncomeFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [applyError, setApplyError] = useState("");
 
@@ -29,7 +81,19 @@ export default function PatientBills() {
     setFullLegalName(user.name || "");
     setAddress("");
     setCitizenshipNumber("");
+    setMonthlyIncome("");
+    setIdFile(null);
+    setIncomeFile(null);
     setApplyError("");
+  }
+
+  function handleFileSelect(setFile, file) {
+    setApplyError("");
+    if (file && file.size > MAX_FILE_BYTES) {
+      setApplyError(`"${file.name}" is too large — please keep each document under 4MB.`);
+      return;
+    }
+    setFile(file);
   }
 
   async function submitApply(e) {
@@ -39,24 +103,45 @@ export default function PatientBills() {
       setApplyError("Full legal name, address, and citizenship number are all required.");
       return;
     }
-    setSubmitting(true);
-    setApplyError("");
-    const result = await applyForEmi({
-      patientId: user.refId,
-      patient: user.name,
-      billId: activeBill.id,
-      amount: balance,
-      tenure: Number(tenure),
-      fullLegalName: fullLegalName.trim(),
-      address: address.trim(),
-      citizenshipNumber: citizenshipNumber.trim(),
-    });
-    setSubmitting(false);
-    if (!result.ok) {
-      setApplyError(result.error);
+    if (!monthlyIncome || Number(monthlyIncome) <= 0) {
+      setApplyError("Monthly income is required — this is what your risk assessment is based on.");
       return;
     }
-    setActiveBill(null);
+    if (!idFile || !incomeFile) {
+      setApplyError("Please upload both your National ID and a monthly income proof document.");
+      return;
+    }
+
+    setSubmitting(true);
+    setApplyError("");
+    try {
+      const [idDoc, incomeDoc] = await Promise.all([readFileAsBase64(idFile), readFileAsBase64(incomeFile)]);
+
+      const result = await applyForEmi({
+        patientId: user.refId,
+        patient: user.name,
+        billId: activeBill.id,
+        amount: balance,
+        tenure: Number(tenure),
+        fullLegalName: fullLegalName.trim(),
+        address: address.trim(),
+        citizenshipNumber: citizenshipNumber.trim(),
+        monthlyIncome: Number(monthlyIncome),
+        nationalIdDocumentBase64: idDoc.base64,
+        nationalIdDocumentContentType: idDoc.contentType,
+        incomeProofDocumentBase64: incomeDoc.base64,
+        incomeProofDocumentContentType: incomeDoc.contentType,
+      });
+      if (!result.ok) {
+        setApplyError(result.error);
+        return;
+      }
+      setActiveBill(null);
+    } catch (err) {
+      setApplyError(err.message || "Something went wrong uploading your documents.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -112,7 +197,7 @@ export default function PatientBills() {
         </p>
       </div>
 
-      <Modal open={!!activeBill} onClose={() => setActiveBill(null)} title="Apply for an installment plan">
+      <Modal open={!!activeBill} onClose={() => setActiveBill(null)} title="Apply for an installment plan" width="max-w-lg">
         {activeBill && (
           <form onSubmit={submitApply} className="space-y-4">
             <div className="bg-paper-dim/60 rounded-lg px-4 py-3 text-[12.5px] text-slate">
@@ -158,20 +243,47 @@ export default function PatientBills() {
               />
             </div>
 
-            <div>
-              <label className="block text-[12.5px] font-medium text-slate mb-1.5">Citizenship number</label>
-              <input
-                type="text"
-                value={citizenshipNumber}
-                onChange={(e) => setCitizenshipNumber(e.target.value)}
-                placeholder="e.g. 23-01-69-08834"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12.5px] font-medium text-slate mb-1.5">Citizenship number</label>
+                <input
+                  type="text"
+                  value={citizenshipNumber}
+                  onChange={(e) => setCitizenshipNumber(e.target.value)}
+                  placeholder="e.g. 23-01-69-08834"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+                />
+              </div>
+              <div>
+                <label className="block text-[12.5px] font-medium text-slate mb-1.5">Monthly income (NPR)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={monthlyIncome}
+                  onChange={(e) => setMonthlyIncome(e.target.value)}
+                  placeholder="e.g. 45000"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+                />
+              </div>
             </div>
+
+            <DocumentUploadField
+              label="National ID card (photo or scan)"
+              file={idFile}
+              onChange={(f) => handleFileSelect(setIdFile, f)}
+              onClear={() => setIdFile(null)}
+            />
+
+            <DocumentUploadField
+              label="Monthly income proof (payslip, bank statement, etc.)"
+              file={incomeFile}
+              onChange={(f) => handleFileSelect(setIncomeFile, f)}
+              onClear={() => setIncomeFile(null)}
+            />
 
             <div className="flex items-start gap-2 bg-amber-light text-amber text-[12.5px] rounded-lg px-3.5 py-2.5">
               <Info size={14} className="shrink-0 mt-0.5" />
-              After you apply, front desk admin will verify your identity before the plan is approved.
+              After you apply, front desk admin will verify your identity and documents before the plan is approved.
             </div>
 
             <button
@@ -179,7 +291,7 @@ export default function PatientBills() {
               disabled={submitting}
               className="w-full bg-ink text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
             >
-              {submitting ? "Submitting…" : "Submit application"}
+              {submitting ? "Uploading and submitting…" : "Submit application"}
             </button>
             {applyError && <p className="text-[12.5px] text-danger">{applyError}</p>}
           </form>

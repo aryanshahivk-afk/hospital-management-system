@@ -7,6 +7,7 @@ import {
   fetchDepartments,
   fetchAppointments,
   fetchBills,
+  fetchBillingCatalog,
   fetchEmiApplications,
   fetchEmiPlans,
   fetchReports,
@@ -28,6 +29,7 @@ import {
   rejectEmiApi,
   payInstallmentApi,
   createReportApi,
+  fetchPendingOrders,
 } from "../api/data";
 
 const DataContext = createContext(null);
@@ -49,6 +51,7 @@ export function DataProvider({ children }) {
   const [departments, setDepartments] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [bills, setBills] = useState([]);
+  const [billingCatalog, setBillingCatalog] = useState([]);
   const [emiPlans, setEmiPlans] = useState({});
   const [emiApplications, setEmiApplications] = useState([]);
   const [reports, setReports] = useState([]);
@@ -73,8 +76,12 @@ export function DataProvider({ children }) {
         fetchDepartments().then(setDepartments),
         fetchAppointments().then(setAppointments),
         fetchReports().then(setReports),
+        // The price catalog itself has no role restriction on the backend (only actually
+        // creating a bill is gated to Admin/FrontDesk) — doctors need it too, to pick
+        // which tests/procedures they're ordering when writing a report.
+        fetchBillingCatalog().then(setBillingCatalog),
       ];
-      // Billing/EMI are hidden from doctors in the original app too — skip to avoid 403s.
+      // Billing/EMI *records* are hidden from doctors in the original app too — skip to avoid 403s.
       if (!isDoctor) {
         tasks.push(fetchBills().then(setBills));
         tasks.push(fetchEmiApplications().then(setEmiApplications));
@@ -159,8 +166,7 @@ export function DataProvider({ children }) {
 
   // ---------- EMI workflow ----------
   const applyForEmi = useCallback(
-    ({ billId, amount, tenure, fullLegalName, address, citizenshipNumber }) =>
-      runMutation(() => applyForEmiApi({ billId, amount, tenure, fullLegalName, address, citizenshipNumber })),
+    (payload) => runMutation(() => applyForEmiApi(payload)),
     [runMutation]
   );
 
@@ -180,12 +186,23 @@ export function DataProvider({ children }) {
   );
 
   const payInstallment = useCallback(
-    (billId, installmentNumber) => runMutation(() => payInstallmentApi(billId, installmentNumber)),
+    (billId, installmentNumber, paymentMethod) => runMutation(() => payInstallmentApi(billId, installmentNumber, paymentMethod)),
     [runMutation]
   );
 
   // ---------- Reports ----------
   const addReport = useCallback((report) => runMutation(() => createReportApi(report)), [runMutation]);
+
+  // On-demand only (not part of the global refresh, since it's scoped to one patient at
+  // a time) — used by the Create Bill screen to show a doctor's unbilled test orders.
+  const getPendingOrders = useCallback(async (patientId) => {
+    try {
+      const data = await fetchPendingOrders(patientId);
+      return { ok: true, data };
+    } catch (err) {
+      return { ok: false, error: err instanceof ApiError ? err.message : "Couldn't load pending orders." };
+    }
+  }, []);
 
   const value = {
     doctors,
@@ -193,6 +210,7 @@ export function DataProvider({ children }) {
     departments,
     appointments,
     bills,
+    billingCatalog,
     emiPlans,
     emiApplications,
     reports,
@@ -217,6 +235,7 @@ export function DataProvider({ children }) {
     rejectEmi,
     payInstallment,
     addReport,
+    getPendingOrders,
     EMI_MIN,
     EMI_MAX,
   };

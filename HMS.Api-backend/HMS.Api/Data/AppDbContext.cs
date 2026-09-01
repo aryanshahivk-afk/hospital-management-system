@@ -13,10 +13,12 @@ public class AppDbContext : DbContext
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<BillLineItem> BillLineItems => Set<BillLineItem>();
     public DbSet<EmiApplication> EmiApplications => Set<EmiApplication>();
     public DbSet<EmiPlan> EmiPlans => Set<EmiPlan>();
     public DbSet<Installment> Installments => Set<Installment>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportOrderedItem> ReportOrderedItems => Set<ReportOrderedItem>();
     public DbSet<AdminAccount> AdminAccounts => Set<AdminAccount>();
     public DbSet<IdCounter> IdCounters => Set<IdCounter>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -62,8 +64,18 @@ public class AppDbContext : DbContext
         b.Entity<Bill>().Property(x => x.Amount).HasPrecision(12, 2);
         b.Entity<Bill>().Property(x => x.Paid).HasPrecision(12, 2);
 
+        b.Entity<BillLineItem>().HasKey(x => x.Id);
+        b.Entity<BillLineItem>().Property(x => x.UnitPrice).HasPrecision(12, 2);
+        b.Entity<BillLineItem>().Property(x => x.Amount).HasPrecision(12, 2);
+        b.Entity<BillLineItem>()
+            .HasOne(li => li.Bill)
+            .WithMany(bill => bill.Items)
+            .HasForeignKey(li => li.BillId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         b.Entity<EmiApplication>().HasKey(x => x.Id);
         b.Entity<EmiApplication>().Property(x => x.Amount).HasPrecision(12, 2);
+        b.Entity<EmiApplication>().Property(x => x.MonthlyIncome).HasPrecision(12, 2);
 
         b.Entity<EmiPlan>().HasKey(x => x.BillId);
         b.Entity<EmiPlan>()
@@ -85,6 +97,14 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         b.Entity<Report>().HasKey(x => x.Id);
+
+        b.Entity<ReportOrderedItem>().HasKey(x => x.Id);
+        b.Entity<ReportOrderedItem>().Property(x => x.UnitPrice).HasPrecision(12, 2);
+        b.Entity<ReportOrderedItem>()
+            .HasOne(o => o.Report)
+            .WithMany(r => r.OrderedTests)
+            .HasForeignKey(o => o.ReportId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         b.Entity<AdminAccount>().HasKey(x => x.Username);
 

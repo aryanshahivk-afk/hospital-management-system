@@ -15,14 +15,6 @@ public class IdGenerator
         _db = db;
     }
 
-    // Deliberately does NOT call SaveChangesAsync itself. SQLite allows only one writer
-    // at a time, and every caller here does a second SaveChangesAsync right after (to
-    // persist the new Patient/Appointment/etc.) — two separate write transactions per
-    // request roughly doubled the odds of a "database is locked" error under any
-    // real-world overlap, which is exactly what caused the "works on the second click"
-    // symptom. Leaving the counter as a tracked-but-unsaved change means the caller's
-    // own SaveChangesAsync persists the counter and the new record together, in one
-    // transaction.
     public async Task<string> NextAsync(string prefix, int startAt = 9000)
     {
         var counter = await _db.IdCounters.FirstOrDefaultAsync(c => c.Prefix == prefix);
@@ -32,6 +24,7 @@ public class IdGenerator
             _db.IdCounters.Add(counter);
         }
         counter.Value += 1;
+        await _db.SaveChangesAsync();
         return $"{prefix}-{counter.Value}";
     }
 }

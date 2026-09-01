@@ -27,6 +27,7 @@ export default function RiskSimulator() {
   const [patientId, setPatientId] = useState("");
   const [amount, setAmount] = useState(100000);
   const [tenure, setTenure] = useState(6);
+  const [monthlyIncome, setMonthlyIncome] = useState(40000);
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -48,7 +49,7 @@ export default function RiskSimulator() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await simulateEmiRiskApi(patientId, amount, tenure);
+        const data = await simulateEmiRiskApi(patientId, amount, tenure, monthlyIncome);
         setResult(data);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Couldn't reach the server.");
@@ -57,7 +58,7 @@ export default function RiskSimulator() {
       }
     }, 350);
     return () => clearTimeout(debounceRef.current);
-  }, [patientId, amount, tenure]);
+  }, [patientId, amount, tenure, monthlyIncome]);
 
   const gaugeData = useMemo(
     () => [{ name: "risk", value: result?.score ?? 0, fill: scoreColor(result?.score ?? 0) }],
@@ -85,6 +86,27 @@ export default function RiskSimulator() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-[12px] font-medium text-slate-soft uppercase tracking-wide">Monthly Income</label>
+              <span className="font-display font-semibold text-ink text-[15px]">{formatNPR(monthlyIncome)}</span>
+            </div>
+            <input
+              type="range"
+              min={5000}
+              max={300000}
+              step={1000}
+              value={monthlyIncome}
+              onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+              className="mt-2 w-full accent-teal"
+            />
+            <div className="flex justify-between text-[11px] text-slate-soft mt-1">
+              <span>{formatNPR(5000)}</span>
+              <span>{formatNPR(300000)}</span>
+            </div>
+            <p className="text-[11px] text-slate-soft mt-1.5">This is the primary driver of the score — see for yourself below.</p>
           </div>
 
           <div>

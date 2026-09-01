@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, User, Stethoscope, Landmark, CalendarClock, AlertCircle, FileText } from "lucide-react";
+import { Search, Bell, User, Stethoscope, Landmark, CalendarClock, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { formatNPR } from "./ui";
@@ -69,8 +69,24 @@ function buildSearchResults({ query, role, refId, navigate, doctors, patients, b
 // "notifications" table needed; these are just the things that actually need attention.
 function buildNotifications({ role, refId, navigate, appointments, bills, emiApplications, emiPlans }) {
   const items = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Surfaces installments paid today, across every patient's plan — used for both the
+  // "patient just paid" alert to staff and the payer's own confirmation.
+  const todaysPayments = Object.values(emiPlans).flatMap((p) =>
+    (p.installments || [])
+      .filter((i) => i.status === "Paid" && i.paidOn === today && i.paymentMethod)
+      .map((i) => ({ plan: p, installment: i }))
+  );
 
   if (role === "admin") {
+    todaysPayments.forEach(({ plan, installment }) =>
+      items.push({
+        icon: Landmark,
+        text: `${plan.patient} paid installment ${installment.number} (${formatNPR(installment.amount)}) via ${installment.paymentMethod}${installment.number === 1 ? " — their 1st EMI payment" : ""}`,
+        go: () => navigate("/emi"),
+      })
+    );
     emiApplications
       .filter((a) => a.status === "Pending Verification" || a.status === "Pending Approval")
       .forEach((a) =>
@@ -89,6 +105,13 @@ function buildNotifications({ role, refId, navigate, appointments, bills, emiApp
       .slice(0, 5)
       .forEach((b) => items.push({ icon: AlertCircle, text: `Bill ${b.id} for ${b.patient} is overdue`, go: () => navigate("/billing") }));
   } else if (role === "frontdesk") {
+    todaysPayments.forEach(({ plan, installment }) =>
+      items.push({
+        icon: Landmark,
+        text: `${plan.patient} paid installment ${installment.number} (${formatNPR(installment.amount)}) via ${installment.paymentMethod}${installment.number === 1 ? " — their 1st EMI payment" : ""}`,
+        go: () => navigate("/emi"),
+      })
+    );
     emiApplications
       .filter((a) => a.status === "Pending Verification")
       .forEach((a) =>
@@ -107,6 +130,15 @@ function buildNotifications({ role, refId, navigate, appointments, bills, emiApp
       .filter((a) => a.doctorId === refId && a.status === "Pending")
       .forEach((a) => items.push({ icon: CalendarClock, text: `${a.patient} is awaiting your confirmation`, go: () => navigate("/doctor/appointments") }));
   } else if (role === "patient") {
+    todaysPayments
+      .filter(({ plan }) => plan.patientId === refId)
+      .forEach(({ installment }) =>
+        items.push({
+          icon: CheckCircle2,
+          text: `You paid installment ${installment.number} (${formatNPR(installment.amount)}) via ${installment.paymentMethod}${installment.number === 1 ? " — your 1st EMI payment" : ""}`,
+          go: () => navigate("/patient/emi"),
+        })
+      );
     emiApplications
       .filter((a) => a.patientId === refId && (a.status === "Approved" || a.status === "Rejected"))
       .forEach((a) =>

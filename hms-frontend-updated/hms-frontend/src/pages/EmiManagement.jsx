@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Landmark, Info, ShieldCheck, Check, X, AlertTriangle, Clock } from "lucide-react";
+import { Landmark, Info, ShieldCheck, Check, X, AlertTriangle, Clock, FileText, Loader2 } from "lucide-react";
 import Topbar from "../components/Topbar";
 import { Card, StatusPill, formatNPR } from "../components/ui";
 import InstallmentLadder from "../components/InstallmentLadder";
 import WorkflowStepper from "../components/WorkflowStepper";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { fetchEmiDocumentUrl } from "../api/data";
 
 const STEP_FOR_STATUS = {
   "Pending Verification": 1,
@@ -36,9 +37,26 @@ export default function EmiManagement() {
   const [downPaymentDrafts, setDownPaymentDrafts] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [rowErrors, setRowErrors] = useState({});
+  const [loadingDoc, setLoadingDoc] = useState(null); // `${appId}:${type}` while a document is being fetched
 
   function billFor(app) {
     return bills.find((b) => b.id === app.billId);
+  }
+
+  // Documents are fetched on demand (they're not in the applications list payload) and
+  // opened in a new tab — the blob URL is short-lived and only exists for this view.
+  async function viewDocument(app, type) {
+    const key = `${app.id}:${type}`;
+    setLoadingDoc(key);
+    setRowErrors((prev) => ({ ...prev, [app.id]: "" }));
+    try {
+      const url = await fetchEmiDocumentUrl(app.id, type);
+      window.open(url, "_blank");
+    } catch {
+      setRowErrors((prev) => ({ ...prev, [app.id]: "Couldn't load that document." }));
+    } finally {
+      setLoadingDoc(null);
+    }
   }
 
   async function handleVerify(app) {
@@ -73,20 +91,20 @@ export default function EmiManagement() {
       <Topbar title="EMI Management" subtitle="Installment plans for patients who can't pay in full" />
 
       <div className="p-8 space-y-6">
-        <div className="bg-mint text-ink rounded-xl p-5 flex items-start gap-4 border border-mint-dark/50">
+        <div className="bg-ink text-white rounded-xl p-5 flex items-start gap-4">
           <div className="w-10 h-10 rounded-lg bg-amber flex items-center justify-center shrink-0">
-            <Landmark size={18} className="text-white" />
+            <Landmark size={18} />
           </div>
           <div>
             <p className="text-[16px] font-semibold">How EMI approval works</p>
-            <p className="text-[13px] text-ink/70 mt-1 leading-relaxed max-w-2xl">
+            <p className="text-[13px] text-white/60 mt-1 leading-relaxed max-w-2xl">
               A patient applies for an installment plan from their portal. Front desk
               verifies their identity against the citizenship card, then an administrator
               reviews and approves or rejects the application. Once approved, the balance
               splits into monthly installments that are tracked automatically. Available
               only for bills between{" "}
-              <span className="font-mono text-ink font-semibold">{formatNPR(EMI_MIN)}</span> and{" "}
-              <span className="font-mono text-ink font-semibold">{formatNPR(EMI_MAX)}</span>.
+              <span className="font-mono text-white">{formatNPR(EMI_MIN)}</span> and{" "}
+              <span className="font-mono text-white">{formatNPR(EMI_MAX)}</span>.
             </p>
           </div>
         </div>
@@ -122,7 +140,7 @@ export default function EmiManagement() {
                   <div className="mt-4 space-y-3">
                     <div className="bg-white border border-line rounded-lg px-4 py-3.5">
                       <p className="text-[11px] font-semibold text-slate-soft uppercase tracking-wide mb-2.5">Submitted ID details — check against physical documents</p>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-4 gap-4">
                         <div>
                           <p className="text-[10.5px] text-slate-soft uppercase tracking-wide">Full legal name</p>
                           <p className="text-[13px] text-ink mt-0.5">{app.fullLegalName || "—"}</p>
@@ -135,6 +153,31 @@ export default function EmiManagement() {
                           <p className="text-[10.5px] text-slate-soft uppercase tracking-wide">Citizenship no.</p>
                           <p className="text-[13px] text-ink font-mono mt-0.5">{app.citizenshipNumber || "—"}</p>
                         </div>
+                        <div>
+                          <p className="text-[10.5px] text-slate-soft uppercase tracking-wide">Monthly income</p>
+                          <p className="text-[13px] text-ink font-mono mt-0.5">{app.monthlyIncome ? formatNPR(app.monthlyIncome) : "—"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 mt-3.5 pt-3.5 border-t border-line">
+                        <button
+                          type="button"
+                          onClick={() => viewDocument(app, "id")}
+                          disabled={!app.hasNationalIdDocument || loadingDoc === `${app.id}:id`}
+                          className="flex items-center gap-1.5 text-[12px] font-medium text-teal hover:underline disabled:text-slate-soft disabled:no-underline disabled:cursor-not-allowed"
+                        >
+                          {loadingDoc === `${app.id}:id` ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                          {app.hasNationalIdDocument ? "View National ID" : "No ID document uploaded"}
+                        </button>
+                        <span className="text-line">·</span>
+                        <button
+                          type="button"
+                          onClick={() => viewDocument(app, "income")}
+                          disabled={!app.hasIncomeProofDocument || loadingDoc === `${app.id}:income`}
+                          className="flex items-center gap-1.5 text-[12px] font-medium text-teal hover:underline disabled:text-slate-soft disabled:no-underline disabled:cursor-not-allowed"
+                        >
+                          {loadingDoc === `${app.id}:income` ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                          {app.hasIncomeProofDocument ? "View income proof" : "No income proof uploaded"}
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between bg-amber-light rounded-lg px-4 py-3">
@@ -165,6 +208,9 @@ export default function EmiManagement() {
                   <div className="mt-4 bg-paper-dim/50 rounded-lg px-4 py-3.5">
                     <p className="text-[12.5px] text-slate mb-3">
                       Identity confirmed. Set a down payment (optional) and approve, or reject the application.
+                      {app.monthlyIncome > 0 && (
+                        <> Declared monthly income: <span className="font-mono text-ink">{formatNPR(app.monthlyIncome)}</span>.</>
+                      )}
                     </p>
 
                     {app.riskBand && app.riskBand !== "N/A" && (

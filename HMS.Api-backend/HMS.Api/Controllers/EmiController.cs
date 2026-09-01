@@ -52,16 +52,18 @@ public class EmiController : ControllerBase
                 results.Add(new EmiApplicationWithRiskDto(
                     a.Id, a.PatientId, a.Patient, a.BillId, a.Amount, a.Tenure, a.Status, a.IdentityVerified, a.AppliedOn, a.RejectReason,
                     0, "N/A", Math.Round(a.Amount / Math.Max(a.Tenure, 1), 2), a.Tenure, new List<string> { "Already decided — risk assessed at application time." },
-                    a.FullLegalName, a.Address, a.CitizenshipNumber
+                    a.FullLegalName, a.Address, a.CitizenshipNumber,
+                    a.MonthlyIncome, !string.IsNullOrEmpty(a.NationalIdDocumentBase64), !string.IsNullOrEmpty(a.IncomeProofDocumentBase64)
                 ));
                 continue;
             }
 
-            var assessment = await _risk.AssessAsync(a.PatientId, a.Amount, a.Tenure);
+            var assessment = await _risk.AssessAsync(a.PatientId, a.Amount, a.Tenure, a.MonthlyIncome);
             results.Add(new EmiApplicationWithRiskDto(
                 a.Id, a.PatientId, a.Patient, a.BillId, a.Amount, a.Tenure, a.Status, a.IdentityVerified, a.AppliedOn, a.RejectReason,
                 assessment.Score, assessment.Band, assessment.EstimatedMonthlyInstallment, assessment.SuggestedTenureMonths, assessment.Reasons,
-                a.FullLegalName, a.Address, a.CitizenshipNumber
+                a.FullLegalName, a.Address, a.CitizenshipNumber,
+                a.MonthlyIncome, !string.IsNullOrEmpty(a.NationalIdDocumentBase64), !string.IsNullOrEmpty(a.IncomeProofDocumentBase64)
             ));
         }
 
@@ -85,7 +87,7 @@ public class EmiController : ControllerBase
         if (req.Tenure is < 1 or > 24)
             return BadRequest(new { error = "Tenure must be between 1 and 24 months." });
 
-        var assessment = await _risk.AssessAsync(req.PatientId, req.Amount, req.Tenure);
+        var assessment = await _risk.AssessAsync(req.PatientId, req.Amount, req.Tenure, req.MonthlyIncome);
         return Ok(assessment);
     }
 
@@ -133,6 +135,18 @@ public class EmiController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.FullLegalName) || string.IsNullOrWhiteSpace(req.Address) || string.IsNullOrWhiteSpace(req.CitizenshipNumber))
             return BadRequest(new { error = "Full legal name, address, and citizenship number are required to apply — front desk needs these to verify your identity." });
 
+        if (req.MonthlyIncome <= 0)
+            return BadRequest(new { error = "Monthly income is required — it's what the risk assessment is based on." });
+
+        if (string.IsNullOrWhiteSpace(req.NationalIdDocumentBase64) || string.IsNullOrWhiteSpace(req.IncomeProofDocumentBase64))
+            return BadRequest(new { error = "A National ID photo and a monthly income proof document are both required to apply." });
+
+        // Cap each document around ~4MB raw (base64 runs ~33% larger than the source bytes)
+        // so one application can't bloat the whole database.
+        const int maxBase64Chars = 5_600_000;
+        if (req.NationalIdDocumentBase64.Length > maxBase64Chars || req.IncomeProofDocumentBase64.Length > maxBase64Chars)
+            return BadRequest(new { error = "Each document must be under about 4MB." });
+
         var patient = await _db.Patients.FindAsync(refId);
 
         var app = new EmiApplication
@@ -149,6 +163,11 @@ public class EmiController : ControllerBase
             FullLegalName = req.FullLegalName.Trim(),
             Address = req.Address.Trim(),
             CitizenshipNumber = req.CitizenshipNumber.Trim(),
+            MonthlyIncome = req.MonthlyIncome,
+            NationalIdDocumentBase64 = req.NationalIdDocumentBase64,
+            NationalIdDocumentContentType = req.NationalIdDocumentContentType,
+            IncomeProofDocumentBase64 = req.IncomeProofDocumentBase64,
+            IncomeProofDocumentContentType = req.IncomeProofDocumentContentType,
         };
         _db.EmiApplications.Add(app);
 
@@ -156,6 +175,31 @@ public class EmiController : ControllerBase
         await _db.SaveChangesAsync();
         await _audit.LogAsync(patient.Name, "Patient", "EMI", $"Applied for EMI of NPR {req.Amount:N0} over {req.Tenure} months on bill {bill.Id}.");
         return Ok(app);
+    }
+
+    // Front desk views the actual uploaded ID/income document during verification —
+    // fetched on demand instead of shipped with every row in the applications list.
+    [HttpGet("applications/{id}/document/{type}")]
+    [Authorize(Roles = "Admin,FrontDesk")]
+    public async Task<IActionResult> GetDocument(string id, string type)
+    {
+        var app = await _db.EmiApplications.FindAsync(id);
+        if (app == null) return NotFound();
+
+        var (base64, contentType) = type.ToLowerInvariant() switch
+        {
+            "id" => (app.NationalIdDocumentBase64, app.NationalIdDocumentContentType),
+            "income" => (app.IncomeProofDocumentBase64, app.IncomeProofDocumentContentType),
+            _ => (null, null),
+        };
+        if (string.IsNullOrEmpty(base64)) return NotFound(new { error = "No document on file." });
+
+        await _audit.LogAsync(
+            User.FindFirstValue(ClaimTypes.Name) ?? "Front Desk", User.FindFirstValue(ClaimTypes.Role) ?? "FrontDesk", "EMI",
+            $"Viewed {(type == "id" ? "National ID" : "income proof")} document for application {app.Id} ({app.Patient})."
+        );
+
+        return File(Convert.FromBase64String(base64), string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType);
     }
 
     // Step 2: front desk verifies identity.
@@ -247,7 +291,7 @@ public class EmiController : ControllerBase
         await _audit.LogAsync(User.FindFirstValue(ClaimTypes.Name) ?? "Admin", "Admin", "EMI", $"Rejected EMI application {app.Id} for {app.Patient} — {app.RejectReason}");
         return Ok(app);
     }
-    // Step 4: patient (or admin recording cash) pays one installment.
+    // Step 4: patient pays one installment via eSewa or Khalti.
     [HttpPost("plans/{billId}/pay-installment")]
     public async Task<ActionResult<EmiPlan>> PayInstallment(string billId, PayInstallmentRequest req)
     {
@@ -259,18 +303,22 @@ public class EmiController : ControllerBase
         if (role == "Patient" && plan.PatientId != refId) return Forbid();
         if (role == "Doctor") return Forbid();
 
+        if (req.PaymentMethod is not ("eSewa" or "Khalti"))
+            return BadRequest(new { error = "Payment method must be eSewa or Khalti." });
+
         var inst = plan.Installments.FirstOrDefault(i => i.Number == req.InstallmentNumber);
         if (inst == null) return NotFound(new { error = "Installment not found." });
         if (inst.Status == "Paid") return BadRequest(new { error = "Installment already paid." });
 
         inst.Status = "Paid";
         inst.PaidOn = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        inst.PaymentMethod = req.PaymentMethod;
 
         var bill = await _db.Bills.FindAsync(billId);
         if (bill != null) bill.Paid = Math.Min(bill.Amount, bill.Paid + inst.Amount);
 
         await _db.SaveChangesAsync();
-        await _audit.LogAsync(User.FindFirstValue(ClaimTypes.Name) ?? plan.Patient, role ?? "Patient", "EMI", $"Paid installment {inst.Number} (NPR {inst.Amount:N0}) on bill {billId}.");
+        await _audit.LogAsync(User.FindFirstValue(ClaimTypes.Name) ?? plan.Patient, role ?? "Patient", "EMI", $"Paid installment {inst.Number} (NPR {inst.Amount:N0}) on bill {billId} via {req.PaymentMethod}.");
         return Ok(plan);
     }
 }

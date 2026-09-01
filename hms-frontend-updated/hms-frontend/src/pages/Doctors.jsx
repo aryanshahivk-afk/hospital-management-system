@@ -47,7 +47,11 @@ export default function Doctors() {
     setSubmitting(true);
     setFormError("");
     const name = form.name.trim().startsWith("Dr.") ? form.name.trim() : `Dr. ${form.name.trim()}`;
-    const payload = { name, specialty: form.specialty, phone: form.phone, status: form.status, username: form.username.trim().toLowerCase() };
+    const payload = {
+      name, specialty: form.specialty, phone: form.phone, status: form.status,
+      // Username is only set at creation — edit form doesn't render or populate it.
+      ...(editingId ? {} : { username: (form.username || "").trim().toLowerCase() }),
+    };
     const result = editingId ? await updateDoctor(editingId, payload) : await addDoctor(payload);
     setSubmitting(false);
     if (!result.ok) {

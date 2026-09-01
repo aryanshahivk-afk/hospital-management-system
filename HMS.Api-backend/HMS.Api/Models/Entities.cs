@@ -76,6 +76,24 @@ public class Bill
     public string Status { get; set; } = "Overdue";   // Paid | Overdue | EMI Pending Approval | EMI Active
 
     [JsonIgnore] public EmiPlan? EmiPlan { get; set; }
+    public List<BillLineItem> Items { get; set; } = new();
+}
+
+// One priced line on a bill (consultation fee, a specific lab test, a procedure, a
+// pharmacy charge, a room charge) — this is what replaces a single freely-typed amount.
+// The bill's Amount is always the server-computed sum of these, never client-supplied
+// directly, so "how much does the patient owe" is always traceable to real, itemized
+// charges instead of a number someone typed in.
+public class BillLineItem
+{
+    public int Id { get; set; }
+    public string BillId { get; set; } = default!;
+    [JsonIgnore] public Bill? Bill { get; set; }
+    public string Description { get; set; } = default!;   // e.g. "Cardiology Consultation", "ECG"
+    public string Category { get; set; } = default!;       // Consultation | Lab Test | Procedure | Room Charge | Pharmacy
+    public int Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; }
+    public decimal Amount { get; set; } // Quantity * UnitPrice, computed server-side
 }
 
 public class EmiApplication
@@ -96,6 +114,16 @@ public class EmiApplication
     public string FullLegalName { get; set; } = default!;
     public string Address { get; set; } = default!;
     public string CitizenshipNumber { get; set; } = default!;
+
+    // Real documents instead of just typed-in text — front desk can actually see the ID
+    // card and income proof during verification, not just trust whatever was typed.
+    // Stored as base64 directly in the row (simplest reliable option on free-tier hosting,
+    // where an on-disk upload folder isn't guaranteed to survive a redeploy).
+    public decimal MonthlyIncome { get; set; }
+    public string? NationalIdDocumentBase64 { get; set; }
+    public string? NationalIdDocumentContentType { get; set; }
+    public string? IncomeProofDocumentBase64 { get; set; }
+    public string? IncomeProofDocumentContentType { get; set; }
 }
 
 public class EmiPlan
@@ -124,6 +152,7 @@ public class Installment
     public decimal Amount { get; set; }
     public string Status { get; set; } = "Upcoming";  // Upcoming | Paid
     public string? PaidOn { get; set; }
+    public string? PaymentMethod { get; set; }         // eSewa | Khalti — set only once paid
 
     [JsonIgnore] public EmiPlan? EmiPlan { get; set; }
 }
@@ -136,6 +165,27 @@ public class Report
     public string Doctor { get; set; } = default!;
     public string Title { get; set; } = default!;
     public string Summary { get; set; } = default!;
+
+    // Structured, separate from the free-text clinical summary above — this is what a
+    // real doctor's test/procedure order looks like, and it's what billing pulls from,
+    // not the prose notes (which are for clinical record-keeping, not invoicing).
+    public List<ReportOrderedItem> OrderedTests { get; set; } = new();
+}
+
+// One test/procedure a doctor ordered during a visit, snapshotted from the price catalog
+// at order time. Stays unbilled until front desk pulls it into an actual bill — Billed
+// and BilledInBillId track that so the same order can't accidentally get billed twice.
+public class ReportOrderedItem
+{
+    public int Id { get; set; }
+    public string ReportId { get; set; } = default!;
+    [JsonIgnore] public Report? Report { get; set; }
+    public string PatientId { get; set; } = default!;
+    public string Description { get; set; } = default!;
+    public string Category { get; set; } = default!;   // Lab Test | Procedure — never Consultation/Room Charge/Pharmacy
+    public decimal UnitPrice { get; set; }
+    public bool Billed { get; set; }
+    public string? BilledInBillId { get; set; }
 }
 
 // Every consequential action (approvals, payments, record creation) writes one of these.

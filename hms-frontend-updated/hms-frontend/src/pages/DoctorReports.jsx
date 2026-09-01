@@ -1,21 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { FileText, FilePlus2 } from "lucide-react";
+import { FileText, FilePlus2, FlaskConical } from "lucide-react";
 import Topbar from "../components/Topbar";
 import Modal from "../components/Modal";
-import { Card } from "../components/ui";
+import { Card, formatNPR } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 
+const ORDERABLE_CATEGORIES = ["Lab Test", "Procedure"];
+
 export default function DoctorReports() {
   const { user } = useAuth();
-  const { patients, reports, addReport } = useData();
+  const { patients, reports, addReport, billingCatalog } = useData();
   const location = useLocation();
 
   const myPatients = patients.filter((p) => p.doctorId === user.refId);
+  // The backend already scopes GetAll to reports for this doctor's current patients;
+  // this narrows further to reports this doctor personally wrote (a patient may have
+  // reports from a previous doctor if they were reassigned — Report only stores the
+  // author's name, not an id, so match on that).
   const myReports = reports
-    .filter((r) => r.doctorId === user.refId || r.doctor === user.name)
+    .filter((r) => r.doctor === user.name)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  const orderableItems = useMemo(
+    () => billingCatalog.filter((c) => ORDERABLE_CATEGORIES.includes(c.category)),
+    [billingCatalog]
+  );
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
@@ -23,6 +34,7 @@ export default function DoctorReports() {
     title: "",
     summary: "",
   });
+  const [orderedIds, setOrderedIds] = useState([]);
   const [justSent, setJustSent] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -38,8 +50,13 @@ export default function DoctorReports() {
 
   function openModal() {
     setForm({ patientId: location.state?.patientId || myPatients[0]?.id || "", title: "", summary: "" });
+    setOrderedIds([]);
     setFormError("");
     setShowModal(true);
+  }
+
+  function toggleOrdered(id) {
+    setOrderedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function handleSubmit(e) {
@@ -50,11 +67,9 @@ export default function DoctorReports() {
     setFormError("");
     const result = await addReport({
       patientId: patient.id,
-      patient: patient.name,
-      doctorId: user.refId,
-      doctor: user.name,
       title: form.title,
       summary: form.summary,
+      orderedTestCatalogIds: orderedIds,
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -68,7 +83,7 @@ export default function DoctorReports() {
 
   return (
     <>
-      <Topbar title="Patient Reports" subtitle="Write and send visit reports to your patients" />
+      <Topbar title="Patient Reports" subtitle="Write visit reports and order tests for your patients" />
 
       <div className="p-8 space-y-4">
         <div className="flex items-center justify-between">
@@ -78,7 +93,7 @@ export default function DoctorReports() {
           <button
             onClick={openModal}
             disabled={myPatients.length === 0}
-            className="flex items-center gap-2 bg-mint text-ink border border-mint-dark/60 px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FilePlus2 size={15} /> Write report
           </button>
@@ -86,7 +101,7 @@ export default function DoctorReports() {
 
         {justSent && (
           <div className="rounded-lg bg-success-light text-success text-[13px] px-4 py-2.5 border border-success/20">
-            Report sent to {justSent} — they can now view it in their patient portal.
+            Report sent to {justSent} — they can now view it in their patient portal. Any tests ordered are now visible to front desk for billing.
           </div>
         )}
 
@@ -104,7 +119,7 @@ export default function DoctorReports() {
               <div className="w-10 h-10 rounded-lg bg-teal-light text-teal flex items-center justify-center shrink-0">
                 <FileText size={17} />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <p className="text-[14.5px] font-semibold text-ink">{r.title}</p>
                   <span className="font-mono text-[11px] text-slate-soft">{r.date}</span>
@@ -113,13 +128,33 @@ export default function DoctorReports() {
                   {r.patient} · {r.patientId}
                 </p>
                 <p className="text-[13px] text-slate mt-2.5 leading-relaxed">{r.summary}</p>
+                {r.orderedTests?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-line">
+                    <p className="text-[11px] font-semibold text-slate-soft uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                      <FlaskConical size={12} /> Tests / procedures ordered
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.orderedTests.map((t) => (
+                        <span
+                          key={t.id}
+                          className={`text-[11.5px] px-2 py-1 rounded-full border ${
+                            t.billed ? "border-line text-slate-soft bg-paper-dim/50" : "border-amber/40 text-amber bg-amber-light"
+                          }`}
+                          title={t.billed ? `Billed on ${t.billedInBillId}` : "Not yet billed"}
+                        >
+                          {t.description} · {formatNPR(t.unitPrice)}{t.billed ? " · billed" : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
         ))}
       </div>
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Write patient report">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Write patient report" width="max-w-lg">
         {myPatients.length === 0 ? (
           <p className="text-[13px] text-slate-soft">You have no patients assigned yet.</p>
         ) : (
@@ -153,12 +188,39 @@ export default function DoctorReports() {
               <label className="block text-[12.5px] font-medium text-slate mb-1.5">Summary / notes</label>
               <textarea
                 required
-                rows={5}
+                rows={4}
                 value={form.summary}
                 onChange={(e) => setForm({ ...form, summary: e.target.value })}
                 placeholder="Findings, diagnosis, advice, next steps…"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal resize-none"
               />
+            </div>
+
+            <div>
+              <label className="block text-[12.5px] font-medium text-slate mb-1.5">
+                Tests / procedures ordered <span className="text-slate-soft font-normal">(optional — this is what front desk bills, not the notes above)</span>
+              </label>
+              <div className="max-h-[160px] overflow-y-auto border border-line rounded-lg divide-y divide-line">
+                {orderableItems.map((item) => (
+                  <label key={item.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px] cursor-pointer hover:bg-paper-dim/40">
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={orderedIds.includes(item.id)}
+                        onChange={() => toggleOrdered(item.id)}
+                        className="accent-teal"
+                      />
+                      {item.description}
+                    </span>
+                    <span className="text-slate-soft font-mono text-[12px]">{formatNPR(item.price)}</span>
+                  </label>
+                ))}
+              </div>
+              {orderedIds.length > 0 && (
+                <p className="text-[11px] text-slate-soft mt-1.5">
+                  {orderedIds.length} item{orderedIds.length !== 1 ? "s" : ""} selected — front desk will see these as pending charges for this patient.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -172,7 +234,7 @@ export default function DoctorReports() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-2.5 rounded-lg bg-mint text-ink border border-mint-dark/60 text-[13.5px] font-medium hover:bg-mint-dark transition-colors disabled:opacity-60"
+                className="flex-1 py-2.5 rounded-lg bg-ink text-white text-[13.5px] font-medium hover:bg-ink-light transition-colors disabled:opacity-60"
               >
                 {submitting ? "Sending…" : "Send to patient"}
               </button>

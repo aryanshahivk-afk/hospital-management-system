@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { Plus, Search, X, Pencil } from "lucide-react";
 import Topbar from "../components/Topbar";
@@ -16,7 +16,14 @@ export default function Patients() {
   const [editingId, setEditingId] = useState(null); // null = "add" mode, else patient id being edited
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ ...emptyForm, doctorId: doctors[0]?.id });
+  const [form, setForm] = useState({ ...emptyForm, doctorId: doctors.find((d) => d.specialty === DEPARTMENTS[0])?.id });
+
+  // Assigned doctor is always scoped to the currently selected department — a patient
+  // registered under Cardiology should only ever be assignable to a cardiologist.
+  const doctorsInDepartment = useMemo(
+    () => doctors.filter((d) => d.specialty === form.department),
+    [doctors, form.department]
+  );
 
   const filtered = patients.filter(
     (p) =>
@@ -27,7 +34,8 @@ export default function Patients() {
 
   function openAdd() {
     setEditingId(null);
-    setForm({ ...emptyForm, doctorId: doctors[0]?.id });
+    const deptDoctors = doctors.filter((d) => d.specialty === DEPARTMENTS[0]);
+    setForm({ ...emptyForm, doctorId: deptDoctors[0]?.id });
     setFormError("");
     setShowModal(true);
   }
@@ -50,7 +58,10 @@ export default function Patients() {
       phone: form.phone,
       department: form.department,
       doctorId: form.doctorId,
-      username: form.username.trim().toLowerCase(),
+      // Username is only set at creation — it's not editable afterward, and the edit
+      // form doesn't even render that field, so don't touch it here (and don't try to
+      // read it off form.username, which openEdit never populates).
+      ...(editingId ? {} : { username: (form.username || "").trim().toLowerCase() }),
     };
     const result = editingId ? await updatePatient(editingId, payload) : await addPatient(payload);
     setSubmitting(false);
@@ -204,7 +215,10 @@ export default function Patients() {
                   <label className="block text-[12.5px] font-medium text-slate mb-1.5">Department</label>
                   <select
                     value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    onChange={(e) => {
+                      const deptDoctors = doctors.filter((d) => d.specialty === e.target.value);
+                      setForm({ ...form, department: e.target.value, doctorId: deptDoctors[0]?.id || "" });
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
                   >
                     {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
@@ -215,9 +229,11 @@ export default function Patients() {
                   <select
                     value={form.doctorId}
                     onChange={(e) => setForm({ ...form, doctorId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+                    disabled={doctorsInDepartment.length === 0}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal disabled:bg-paper-dim disabled:text-slate-soft"
                   >
-                    {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    {doctorsInDepartment.length === 0 && <option value="">No doctors in this department</option>}
+                    {doctorsInDepartment.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
               </div>

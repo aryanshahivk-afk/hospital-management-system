@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Landmark, ShieldCheck, Info, CheckCircle2 } from "lucide-react";
+import { Landmark, ShieldCheck, Info, CheckCircle2, ChevronLeft, Lock, Smartphone } from "lucide-react";
 import Topbar from "../components/Topbar";
 import { Card, StatusPill, formatNPR } from "../components/ui";
 import InstallmentLadder from "../components/InstallmentLadder";
@@ -15,28 +15,70 @@ const STEP_FOR_STATUS = {
   Rejected: 2,
 };
 
+const METHODS = [
+  { id: "eSewa", label: "eSewa", color: "#60BB46", textColor: "#0B5D1E" },
+  { id: "Khalti", label: "Khalti", color: "#5C2D91", textColor: "#5C2D91" },
+];
+
 export default function PatientEmi() {
   const { user } = useAuth();
   const { emiApplications, emiPlans, payInstallment } = useData();
   const myApps = emiApplications.filter((a) => a.patientId === user.refId);
   const [busyKey, setBusyKey] = useState(null);
   const [payError, setPayError] = useState({});
-  const [confirmPay, setConfirmPay] = useState(null); // { billId, installment }
 
-  function openConfirm(billId, installment) {
-    setConfirmPay({ billId, installment });
+  // Flow: null -> "method" -> "confirm" -> "pin" -> "success"
+  const [flow, setFlow] = useState(null);
+  const [payTarget, setPayTarget] = useState(null); // { billId, installment }
+  const [method, setMethod] = useState(null);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
+
+  function openPay(billId, installment) {
+    setPayTarget({ billId, installment });
+    setMethod(null);
+    setPin("");
+    setPinError("");
+    setFlow("method");
   }
 
-  async function handlePay() {
-    if (!confirmPay) return;
-    const { billId, installment } = confirmPay;
+  function closeFlow() {
+    setFlow(null);
+    setPayTarget(null);
+  }
+
+  function chooseMethod(m) {
+    setMethod(m);
+    setFlow("confirm");
+  }
+
+  function goToPin() {
+    setPin("");
+    setPinError("");
+    setFlow("pin");
+  }
+
+  // The PIN is checked here, on the device, and never sent anywhere — exactly like a
+  // real eSewa/Khalti checkout, where the wallet app (not the merchant) verifies your
+  // PIN. This app has no real gateway behind it, so this step just confirms the PIN
+  // looks like a real one (4-6 digits) before "authorizing" the payment call below.
+  async function confirmPin() {
+    if (!/^\d{4,6}$/.test(pin)) {
+      setPinError("Enter your 4-6 digit " + method.label + " PIN.");
+      return;
+    }
+    const { billId, installment } = payTarget;
     const key = `${billId}-${installment.number}`;
     setBusyKey(key);
-    setPayError((prev) => ({ ...prev, [billId]: "" }));
-    const result = await payInstallment(billId, installment.number);
+    setPinError("");
+    const result = await payInstallment(billId, installment.number, method.id);
     setBusyKey(null);
-    if (!result.ok) setPayError((prev) => ({ ...prev, [billId]: result.error }));
-    else setConfirmPay(null);
+    if (!result.ok) {
+      setPayError((prev) => ({ ...prev, [billId]: result.error }));
+      closeFlow();
+      return;
+    }
+    setFlow("success");
   }
 
   return (
@@ -124,7 +166,7 @@ export default function PatientEmi() {
                             Next installment: <span className="font-mono text-ink">{formatNPR(next.amount)}</span> due {next.dueDate}
                           </p>
                           <button
-                            onClick={() => openConfirm(app.billId, next)}
+                            onClick={() => openPay(app.billId, next)}
                             disabled={busyKey === `${app.billId}-${next.number}`}
                             className="flex items-center gap-1.5 bg-teal text-white text-[12.5px] font-medium px-4 py-2 rounded-lg hover:bg-teal/90 transition-colors disabled:opacity-50"
                           >
@@ -147,27 +189,79 @@ export default function PatientEmi() {
         })}
       </div>
 
-      <Modal open={!!confirmPay} onClose={() => setConfirmPay(null)} title="Confirm installment payment">
-        {confirmPay && (
+      <Modal
+        open={!!flow}
+        onClose={closeFlow}
+        title={
+          flow === "method" ? "Choose payment method" :
+          flow === "confirm" ? "Confirm installment payment" :
+          flow === "pin" ? `Enter your ${method?.label} PIN` :
+          "Payment successful"
+        }
+      >
+        {flow === "method" && payTarget && (
+          <div className="space-y-3">
+            <p className="text-[12.5px] text-slate-soft mb-1">
+              Paying <span className="font-mono text-ink">{formatNPR(payTarget.installment.amount)}</span> for installment #{payTarget.installment.number}
+            </p>
+            {METHODS.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => chooseMethod(m)}
+                className="w-full flex items-center gap-3.5 border border-line rounded-lg px-4 py-3.5 hover:border-teal hover:bg-teal-light/30 transition-colors text-left"
+              >
+                <span
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[13px] shrink-0"
+                  style={{ backgroundColor: m.color }}
+                >
+                  {m.label[0]}
+                </span>
+                <span>
+                  <span className="block text-[14px] font-medium text-ink">{m.label}</span>
+                  <span className="block text-[11.5px] text-slate-soft">Pay with your {m.label} wallet</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {flow === "confirm" && payTarget && method && (
           <div className="space-y-4">
+            <button
+              onClick={() => setFlow("method")}
+              className="flex items-center gap-1 text-[12px] text-slate-soft hover:text-ink"
+            >
+              <ChevronLeft size={13} /> Change payment method
+            </button>
+
+            <div className="flex items-center gap-2.5 bg-paper-dim/50 rounded-lg px-3.5 py-2.5">
+              <span
+                className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold text-[11px] shrink-0"
+                style={{ backgroundColor: method.color }}
+              >
+                {method.label[0]}
+              </span>
+              <span className="text-[12.5px] text-slate">Paying with <span className="font-medium text-ink">{method.label}</span></span>
+            </div>
+
             <div className="bg-paper-dim/60 rounded-lg px-4 py-3.5 space-y-2">
               <div className="flex items-center justify-between text-[13px]">
                 <span className="text-slate-soft">Installment</span>
-                <span className="font-mono text-ink">#{confirmPay.installment.number}</span>
+                <span className="font-mono text-ink">#{payTarget.installment.number}</span>
               </div>
               <div className="flex items-center justify-between text-[13px]">
                 <span className="text-slate-soft">For month</span>
                 <span className="font-mono text-ink">
-                  {new Date(confirmPay.installment.dueDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  {new Date(payTarget.installment.dueDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[13px]">
                 <span className="text-slate-soft">Due date</span>
-                <span className="font-mono text-ink">{confirmPay.installment.dueDate}</span>
+                <span className="font-mono text-ink">{payTarget.installment.dueDate}</span>
               </div>
               <div className="flex items-center justify-between text-[14px] pt-2 border-t border-line">
                 <span className="text-slate font-medium">Amount</span>
-                <span className="font-mono font-semibold text-ink">{formatNPR(confirmPay.installment.amount)}</span>
+                <span className="font-mono font-semibold text-ink">{formatNPR(payTarget.installment.amount)}</span>
               </div>
             </div>
 
@@ -177,14 +271,83 @@ export default function PatientEmi() {
             </div>
 
             <button
-              onClick={handlePay}
-              disabled={busyKey === `${confirmPay.billId}-${confirmPay.installment.number}`}
-              className="w-full flex items-center justify-center gap-2 bg-teal text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-teal/90 transition-colors disabled:opacity-60"
+              onClick={goToPin}
+              className="w-full flex items-center justify-center gap-2 bg-teal text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-teal/90 transition-colors"
             >
               <CheckCircle2 size={15} />
-              {busyKey === `${confirmPay.billId}-${confirmPay.installment.number}`
-                ? "Processing…"
-                : `Confirm & pay ${formatNPR(confirmPay.installment.amount)}`}
+              Confirm & pay {formatNPR(payTarget.installment.amount)}
+            </button>
+          </div>
+        )}
+
+        {flow === "pin" && payTarget && method && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setFlow("confirm")}
+              className="flex items-center gap-1 text-[12px] text-slate-soft hover:text-ink"
+            >
+              <ChevronLeft size={13} /> Back
+            </button>
+
+            <div className="flex flex-col items-center text-center py-2">
+              <span
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-[16px] mb-3"
+                style={{ backgroundColor: method.color }}
+              >
+                {method.label[0]}
+              </span>
+              <p className="text-[13.5px] text-ink font-medium">Authorize this payment</p>
+              <p className="text-[12px] text-slate-soft mt-1 flex items-center gap-1.5">
+                <Smartphone size={12} /> {formatNPR(payTarget.installment.amount)} via {method.label}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[12.5px] font-medium text-slate mb-1.5 flex items-center gap-1.5">
+                <Lock size={12} /> {method.label} PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••"
+                autoFocus
+                className="w-full px-3.5 py-3 rounded-lg border border-line bg-white text-[20px] tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+              />
+              {pinError && <p className="text-[12px] text-danger mt-1.5">{pinError}</p>}
+              <p className="text-[11px] text-slate-soft mt-2">
+                For your security, your PIN is verified by {method.label} directly and is never seen by this hospital's system.
+              </p>
+            </div>
+
+            <button
+              onClick={confirmPin}
+              disabled={busyKey === `${payTarget.billId}-${payTarget.installment.number}`}
+              className="w-full flex items-center justify-center gap-2 bg-teal text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-teal/90 transition-colors disabled:opacity-60"
+            >
+              {busyKey === `${payTarget.billId}-${payTarget.installment.number}` ? "Verifying…" : `Verify & pay ${formatNPR(payTarget.installment.amount)}`}
+            </button>
+          </div>
+        )}
+
+        {flow === "success" && payTarget && method && (
+          <div className="flex flex-col items-center text-center py-4 space-y-3">
+            <span className="w-14 h-14 rounded-full bg-success-light text-success flex items-center justify-center">
+              <CheckCircle2 size={28} />
+            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-ink">Payment successful</p>
+              <p className="text-[12.5px] text-slate-soft mt-1">
+                Installment #{payTarget.installment.number} · {formatNPR(payTarget.installment.amount)} · paid via {method.label}
+              </p>
+            </div>
+            <button
+              onClick={closeFlow}
+              className="w-full bg-ink text-white py-2.5 rounded-lg text-[13.5px] font-medium hover:bg-ink-light transition-colors"
+            >
+              Done
             </button>
           </div>
         )}

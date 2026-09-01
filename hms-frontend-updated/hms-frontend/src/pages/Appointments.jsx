@@ -7,6 +7,7 @@ import { StatusPill } from "../components/ui";
 import { useData } from "../context/DataContext";
 
 const TYPES = ["Consultation", "Follow-up", "New Patient"];
+const DEPARTMENTS = ["Cardiology", "Orthopedics", "General Medicine", "ENT"];
 
 export default function Appointments() {
   const { appointments, patients, doctors, updateAppointmentStatus, createAppointment, updateAppointment } = useData();
@@ -23,11 +24,21 @@ export default function Appointments() {
   const [query, setQuery] = useState(routerLocation.state?.query || "");
   const [form, setForm] = useState({
     patientId: "",
+    department: DEPARTMENTS[0],
     doctorId: doctors[0]?.id ?? "",
     date: "2026-08-04",
     time: "10:00 AM",
     type: TYPES[0],
   });
+
+  // Doctor picker only ever shows doctors within the currently selected department —
+  // picking a department first, then a doctor within it, matches how a real hospital's
+  // scheduling desk works (and how patients actually think: "I need a cardiologist", not
+  // "I need Dr. X specifically").
+  const doctorsInDepartment = useMemo(
+    () => doctors.filter((d) => d.specialty === form.department),
+    [doctors, form.department]
+  );
 
   const filtered = useMemo(() => {
     let list = doctorFilter ? appointments.filter((a) => a.doctorId === doctorFilter) : appointments;
@@ -42,9 +53,13 @@ export default function Appointments() {
 
   function openModal() {
     setEditingId(null);
+    const preselectedDoctor = doctorFilter ? doctors.find((d) => d.id === doctorFilter) : null;
+    const initialDept = preselectedDoctor?.specialty || DEPARTMENTS[0];
+    const deptDoctors = doctors.filter((d) => d.specialty === initialDept);
     setForm({
       patientId: patients[0]?.id ?? "",
-      doctorId: doctorFilter || doctors[0]?.id || "",
+      department: initialDept,
+      doctorId: preselectedDoctor?.id || deptDoctors[0]?.id || "",
       date: "2026-08-04",
       time: "10:00 AM",
       type: TYPES[0],
@@ -55,9 +70,22 @@ export default function Appointments() {
 
   function openEdit(a) {
     setEditingId(a.id);
-    setForm({ patientId: a.patientId, doctorId: a.doctorId, date: a.date, time: a.time, type: a.type });
+    const currentDoctor = doctors.find((d) => d.id === a.doctorId);
+    setForm({
+      patientId: a.patientId,
+      department: currentDoctor?.specialty || DEPARTMENTS[0],
+      doctorId: a.doctorId,
+      date: a.date,
+      time: a.time,
+      type: a.type,
+    });
     setFormError("");
     setShowModal(true);
+  }
+
+  function handleDepartmentChange(dept) {
+    const deptDoctors = doctors.filter((d) => d.specialty === dept);
+    setForm({ ...form, department: dept, doctorId: deptDoctors[0]?.id || "" });
   }
 
   async function handleSubmit(e) {
@@ -220,13 +248,25 @@ export default function Appointments() {
             {editingId && <p className="text-[11px] text-slate-soft mt-1">The patient on an existing appointment can't be changed — cancel and create a new one instead.</p>}
           </div>
           <div>
+            <label className="block text-[12.5px] font-medium text-slate mb-1.5">Department</label>
+            <select
+              value={form.department}
+              onChange={(e) => handleDepartmentChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+            >
+              {DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-[12.5px] font-medium text-slate mb-1.5">Doctor</label>
             <select
               value={form.doctorId}
               onChange={(e) => setForm({ ...form, doctorId: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal disabled:bg-paper-dim disabled:text-slate-soft"
+              disabled={doctorsInDepartment.length === 0}
             >
-              {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.specialty}</option>)}
+              {doctorsInDepartment.length === 0 && <option value="">No doctors in this department</option>}
+              {doctorsInDepartment.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">

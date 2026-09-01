@@ -56,13 +56,13 @@ export default function AuditLog() {
       <Topbar title="Audit Log" subtitle="A record of every consequential action, who performed it, and when" />
 
       <div className="p-8 space-y-4">
-        <div className="bg-mint text-ink rounded-xl p-5 flex items-start gap-4 border border-mint-dark/50">
+        <div className="bg-ink text-white rounded-xl p-5 flex items-start gap-4">
           <div className="w-10 h-10 rounded-lg bg-teal flex items-center justify-center shrink-0">
-            <ShieldCheck size={18} className="text-white" />
+            <ShieldCheck size={18} />
           </div>
           <div>
             <p className="text-[16px] font-semibold">Why this exists</p>
-            <p className="text-[13px] text-ink/70 mt-1 leading-relaxed max-w-2xl">
+            <p className="text-[13px] text-white/60 mt-1 leading-relaxed max-w-2xl">
               Every EMI approval, payment adjustment, appointment change, and new patient/doctor
               record writes an entry here automatically — server-side, not something the UI can
               be tricked into skipping. This is what lets you answer "who approved this, and when"
@@ -78,7 +78,7 @@ export default function AuditLog() {
                 key={c}
                 onClick={() => setCategory(c)}
                 className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-medium transition-colors ${
-                  category === c ? "bg-mint-dark text-ink font-semibold" : "bg-white border border-line text-slate hover:bg-paper-dim"
+                  category === c ? "bg-ink text-white" : "bg-white border border-line text-slate hover:bg-paper-dim"
                 }`}
               >
                 {c}
