@@ -189,10 +189,88 @@ public class BillingController : ControllerBase
         bill.Paid = newPaid;
         bill.Status = status;
         await _db.SaveChangesAsync();
+
+        var staffName = User.FindFirstValue(ClaimTypes.Name) ?? role;
+        if (req.Direction == "add")
+        {
+            _db.Payments.Add(new Payment
+            {
+                ReceiptNumber = await _ids.NextAsync("RCT", 9000),
+                BillId = bill.Id,
+                PatientId = bill.PatientId,
+                Patient = bill.Patient,
+                Amount = req.Amount,
+                Method = "Cash",
+                Type = "Bill Payment",
+                PaidOn = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                RecordedBy = staffName,
+            });
+            await _db.SaveChangesAsync();
+        }
+
         await _audit.LogAsync(
-            User.FindFirstValue(ClaimTypes.Name) ?? role, role, "Billing",
+            staffName, role, "Billing",
             $"{(req.Direction == "add" ? "Recorded" : "Reversed")} payment of NPR {req.Amount:N0} on bill {id} ({bill.Patient})."
         );
         return Ok(bill);
+    }
+
+    // Patient pays their own bill directly — not every bill qualifies for or needs EMI
+    // (EMI only kicks in above NPR 30,001); a small bill needs a normal "pay now" path
+    // too, via eSewa/Khalti, same as the EMI installment flow. Pays the full outstanding
+    // balance in one go — partial self-service payments aren't supported to keep the
+    // reconciliation simple; a patient wanting a partial/installment arrangement uses EMI.
+    [HttpPost("{id}/pay")]
+    [Authorize(Roles = "Patient")]
+    public async Task<ActionResult<Bill>> PayBill(string id, PayBillRequest req)
+    {
+        var refId = User.FindFirstValue("refId");
+        var bill = await _db.Bills.FindAsync(id);
+        if (bill == null || bill.PatientId != refId) return NotFound();
+
+        if (req.PaymentMethod is not ("eSewa" or "Khalti"))
+            return BadRequest(new { error = "Payment method must be eSewa or Khalti." });
+        if (bill.Status is "EMI Active" or "EMI Pending Approval")
+            return BadRequest(new { error = "This bill is on an EMI plan — pay it through your EMI installments instead." });
+
+        var balance = bill.Amount - bill.Paid;
+        if (balance <= 0) return BadRequest(new { error = "This bill is already fully paid." });
+
+        bill.Paid = bill.Amount;
+        bill.Status = "Paid";
+
+        _db.Payments.Add(new Payment
+        {
+            ReceiptNumber = await _ids.NextAsync("RCT", 9000),
+            BillId = bill.Id,
+            PatientId = bill.PatientId,
+            Patient = bill.Patient,
+            Amount = balance,
+            Method = req.PaymentMethod,
+            Type = "Bill Payment",
+            PaidOn = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            RecordedBy = "Patient (self)",
+        });
+        await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(User.FindFirstValue(ClaimTypes.Name) ?? bill.Patient, "Patient", "Billing", $"Paid bill {id} in full (NPR {balance:N0}) via {req.PaymentMethod}.");
+        return Ok(bill);
+    }
+
+    // The permanent receipt list — every payment that's ever happened, whether a direct
+    // bill payment, an EMI installment, or front-desk-recorded cash, all in one place a
+    // patient can check anytime as proof of payment. Patient sees only their own; staff
+    // sees everyone's.
+    [HttpGet("payments")]
+    public async Task<ActionResult<List<Payment>>> GetPayments()
+    {
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var refId = User.FindFirstValue("refId");
+        if (role == "Doctor") return Forbid();
+
+        var query = _db.Payments.AsNoTracking().AsQueryable();
+        if (role == "Patient") query = query.Where(p => p.PatientId == refId);
+
+        return Ok(await query.OrderByDescending(p => p.Id).ToListAsync());
     }
 }

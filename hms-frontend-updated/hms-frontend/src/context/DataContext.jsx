@@ -23,6 +23,8 @@ import {
   updateAppointmentStatusApi,
   createBillApi,
   adjustPaymentApi,
+  payBillApi,
+  fetchPayments,
   applyForEmiApi,
   verifyIdentityApi,
   approveEmiApi,
@@ -52,6 +54,7 @@ export function DataProvider({ children }) {
   const [appointments, setAppointments] = useState([]);
   const [bills, setBills] = useState([]);
   const [billingCatalog, setBillingCatalog] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [emiPlans, setEmiPlans] = useState({});
   const [emiApplications, setEmiApplications] = useState([]);
   const [reports, setReports] = useState([]);
@@ -84,6 +87,7 @@ export function DataProvider({ children }) {
       // Billing/EMI *records* are hidden from doctors in the original app too — skip to avoid 403s.
       if (!isDoctor) {
         tasks.push(fetchBills().then(setBills));
+        tasks.push(fetchPayments().then(setPayments));
         tasks.push(fetchEmiApplications().then(setEmiApplications));
         tasks.push(fetchEmiPlans().then((plans) => setEmiPlans(keyPlansByBillId(plans))));
       }
@@ -112,6 +116,8 @@ export function DataProvider({ children }) {
       setDepartments([]);
       setAppointments([]);
       setBills([]);
+      setPayments([]);
+      setBillingCatalog([]);
       setEmiPlans({});
       setEmiApplications([]);
       setReports([]);
@@ -164,6 +170,11 @@ export function DataProvider({ children }) {
 
   const createBill = useCallback((bill) => runMutation(() => createBillApi(bill)), [runMutation]);
 
+  const payBill = useCallback(
+    (billId, paymentMethod) => runMutation(() => payBillApi(billId, paymentMethod)),
+    [runMutation]
+  );
+
   // ---------- EMI workflow ----------
   const applyForEmi = useCallback(
     (payload) => runMutation(() => applyForEmiApi(payload)),
@@ -210,6 +221,7 @@ export function DataProvider({ children }) {
     departments,
     appointments,
     bills,
+    payments,
     billingCatalog,
     emiPlans,
     emiApplications,
@@ -228,6 +240,7 @@ export function DataProvider({ children }) {
     createAppointment,
     updateAppointment,
     adjustPayment,
+    payBill,
     createBill,
     applyForEmi,
     verifyIdentity,

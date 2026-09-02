@@ -317,6 +317,23 @@ public class EmiController : ControllerBase
         var bill = await _db.Bills.FindAsync(billId);
         if (bill != null) bill.Paid = Math.Min(bill.Amount, bill.Paid + inst.Amount);
 
+        // Same permanent receipt ledger a direct bill payment writes to — an EMI
+        // installment is just another kind of payment, and it belongs in the patient's
+        // one payment history alongside everything else, not off in its own silo.
+        _db.Payments.Add(new Payment
+        {
+            ReceiptNumber = await _ids.NextAsync("RCT", 9000),
+            BillId = billId,
+            PatientId = plan.PatientId,
+            Patient = plan.Patient,
+            Amount = inst.Amount,
+            Method = req.PaymentMethod,
+            Type = "EMI Installment",
+            InstallmentNumber = inst.Number,
+            PaidOn = inst.PaidOn,
+            RecordedBy = "Patient (self)",
+        });
+
         await _db.SaveChangesAsync();
         await _audit.LogAsync(User.FindFirstValue(ClaimTypes.Name) ?? plan.Patient, role ?? "Patient", "EMI", $"Paid installment {inst.Number} (NPR {inst.Amount:N0}) on bill {billId} via {req.PaymentMethod}.");
         return Ok(plan);

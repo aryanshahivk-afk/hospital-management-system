@@ -96,6 +96,26 @@ public class BillLineItem
     public decimal Amount { get; set; } // Quantity * UnitPrice, computed server-side
 }
 
+// A permanent, unmodifiable record of one payment — the patient's proof of payment,
+// separate from Bill.Paid (which is just a running total). Every rupee that ever moves
+// (a direct bill payment, an EMI installment, or a front-desk-recorded cash payment)
+// gets one of these and it's never edited or deleted, only ever added to. This is what
+// "check anytime, for their proof" actually needs — a receipt list, not a derived number.
+public class Payment
+{
+    public int Id { get; set; }
+    public string ReceiptNumber { get; set; } = default!; // RCT-9001
+    public string BillId { get; set; } = default!;
+    public string PatientId { get; set; } = default!;
+    public string Patient { get; set; } = default!;
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = default!;   // eSewa | Khalti | Cash
+    public string Type { get; set; } = default!;      // Bill Payment | EMI Installment
+    public int? InstallmentNumber { get; set; }        // set only for Type == EMI Installment
+    public string PaidOn { get; set; } = default!;
+    public string RecordedBy { get; set; } = default!; // "Patient (self)" or the staff member's name
+}
+
 public class EmiApplication
 {
     public string Id { get; set; } = default!;        // EMI-901

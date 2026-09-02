@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<BillLineItem> BillLineItems => Set<BillLineItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<EmiApplication> EmiApplications => Set<EmiApplication>();
     public DbSet<EmiPlan> EmiPlans => Set<EmiPlan>();
     public DbSet<Installment> Installments => Set<Installment>();
@@ -72,6 +73,9 @@ public class AppDbContext : DbContext
             .WithMany(bill => bill.Items)
             .HasForeignKey(li => li.BillId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<Payment>().HasKey(x => x.Id);
+        b.Entity<Payment>().Property(x => x.Amount).HasPrecision(12, 2);
 
         b.Entity<EmiApplication>().HasKey(x => x.Id);
         b.Entity<EmiApplication>().Property(x => x.Amount).HasPrecision(12, 2);

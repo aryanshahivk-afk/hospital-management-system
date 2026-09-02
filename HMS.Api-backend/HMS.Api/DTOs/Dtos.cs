@@ -29,7 +29,11 @@ public record BillLineItemInput(string? CatalogItemId, string? Description, int 
 // OrderedItemIds pulls in specific doctor-ordered tests (ReportOrderedItem rows) so they
 // get billed exactly once — the server marks them Billed after adding them to the bill.
 public record CreateBillRequest(string PatientId, List<BillLineItemInput> Items, List<int>? OrderedItemIds);
-public record AdjustPaymentRequest(decimal Amount, string Direction); // "add" | "subtract"
+public record AdjustPaymentRequest(decimal Amount, string Direction); // "add" | "subtract" — front desk cash only
+// Patient's own direct payment on a bill (not via EMI) — full outstanding balance, via
+// eSewa or Khalti. No PIN or phone number field here for the same reason as EMI
+// payments: those are gateway-side credentials, never sent to this backend.
+public record PayBillRequest(string PaymentMethod);
 
 // ---------- EMI ----------
 public record ApplyEmiRequest(

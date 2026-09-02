@@ -26,6 +26,11 @@ export const fetchBillingCatalog = () => api.get("/bills/catalog");
 export const createBillApi = (bill) => api.post("/bills", bill);
 export const adjustPaymentApi = (billId, amount, direction) =>
   api.post(`/bills/${billId}/adjust-payment`, { amount, direction });
+// Patient pays their own bill directly (not via EMI) — full outstanding balance.
+export const payBillApi = (billId, paymentMethod) =>
+  api.post(`/bills/${billId}/pay`, { paymentMethod });
+// Permanent receipt list — every payment ever made, scoped by role on the backend.
+export const fetchPayments = () => api.get("/bills/payments");
 // ---------- EMI ----------
 export const fetchEmiApplications = () => api.get("/emi/applications");
 export const fetchEmiPlans = () => api.get("/emi/plans");

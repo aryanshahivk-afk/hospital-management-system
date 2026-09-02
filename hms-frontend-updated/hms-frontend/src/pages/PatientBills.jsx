@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Landmark, Info, Upload, FileCheck2, X as XIcon } from "lucide-react";
+import { Landmark, Info, Upload, FileCheck2, X as XIcon, CreditCard, Receipt } from "lucide-react";
 import Topbar from "../components/Topbar";
 import Modal from "../components/Modal";
+import PaymentFlowModal from "../components/PaymentFlowModal";
 import { StatusPill, formatNPR } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
@@ -57,10 +58,13 @@ function DocumentUploadField({ label, hint, file, onChange, onClear }) {
 
 export default function PatientBills() {
   const { user } = useAuth();
-  const { bills, applyForEmi, emiApplications, EMI_MIN, EMI_MAX } = useData();
+  const { bills, applyForEmi, emiApplications, payBill, payments, EMI_MIN, EMI_MAX } = useData();
   const mine = bills.filter((b) => b.patientId === user.refId);
+  const myPayments = payments.filter((p) => p.patientId === user.refId);
 
   const [activeBill, setActiveBill] = useState(null);
+  const [payTarget, setPayTarget] = useState(null); // the bill being paid directly
+  const [payError, setPayError] = useState({});
   const [tenure, setTenure] = useState(3);
   const [fullLegalName, setFullLegalName] = useState(user.name || "");
   const [address, setAddress] = useState("");
@@ -161,7 +165,8 @@ export default function PatientBills() {
             <tbody className="divide-y divide-line">
               {mine.map((b) => {
                 const balance = b.amount - b.paid;
-                const eligible = balance >= EMI_MIN && balance <= EMI_MAX;
+                const onEmi = b.status === "EMI Active" || b.status === "EMI Pending Approval";
+                const eligible = !onEmi && balance >= EMI_MIN && balance <= EMI_MAX;
                 const applied = alreadyApplied(b.id);
                 return (
                   <tr key={b.id} className="hover:bg-paper-dim/30 transition-colors">
@@ -172,15 +177,26 @@ export default function PatientBills() {
                     <td className="px-5 py-3.5 font-mono text-[13px] text-ink">{formatNPR(balance)}</td>
                     <td className="px-5 py-3.5"><StatusPill status={b.status} /></td>
                     <td className="px-5 py-3.5">
-                      {balance > 0 && eligible && !applied && (
-                        <button
-                          onClick={() => openApply(b)}
-                          className="flex items-center gap-1.5 text-teal text-[12.5px] font-medium hover:underline"
-                        >
-                          <Landmark size={13} /> Apply for EMI
-                        </button>
-                      )}
-                      {applied && <span className="text-[12px] text-slate-soft">Application in progress</span>}
+                      <div className="flex items-center gap-3">
+                        {balance > 0 && !onEmi && (
+                          <button
+                            onClick={() => { setPayError((prev) => ({ ...prev, [b.id]: "" })); setPayTarget(b); }}
+                            className="flex items-center gap-1.5 text-ink text-[12.5px] font-medium hover:underline"
+                          >
+                            <CreditCard size={13} /> Pay now
+                          </button>
+                        )}
+                        {balance > 0 && eligible && !applied && (
+                          <button
+                            onClick={() => openApply(b)}
+                            className="flex items-center gap-1.5 text-teal text-[12.5px] font-medium hover:underline"
+                          >
+                            <Landmark size={13} /> Apply for EMI
+                          </button>
+                        )}
+                        {applied && <span className="text-[12px] text-slate-soft">EMI application in progress</span>}
+                      </div>
+                      {payError[b.id] && <p className="text-[11.5px] text-danger mt-1">{payError[b.id]}</p>}
                     </td>
                   </tr>
                 );
@@ -193,8 +209,44 @@ export default function PatientBills() {
         </div>
 
         <p className="text-[12px] text-slate-soft mt-3">
-          EMI is available for outstanding balances between {formatNPR(EMI_MIN)} and {formatNPR(EMI_MAX)}.
+          EMI is available for outstanding balances between {formatNPR(EMI_MIN)} and {formatNPR(EMI_MAX)}. Smaller bills can be paid directly.
         </p>
+
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Receipt size={15} className="text-slate-soft" />
+            <h2 className="text-[14px] font-semibold text-ink">Payment history</h2>
+            <span className="text-[12px] text-slate-soft">— your permanent record of every payment, for your own reference</span>
+          </div>
+          <div className="bg-white rounded-xl border border-line overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left">
+              <thead>
+                <tr className="border-b border-line bg-paper-dim/40">
+                  {["Receipt No.", "Date", "Bill ID", "Type", "Method", "Amount"].map((h) => (
+                    <th key={h} className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-soft">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {myPayments.map((p) => (
+                  <tr key={p.id} className="hover:bg-paper-dim/30 transition-colors">
+                    <td className="px-5 py-3 font-mono text-[12px] text-slate-soft">{p.receiptNumber}</td>
+                    <td className="px-5 py-3 font-mono text-[12px] text-slate">{p.paidOn}</td>
+                    <td className="px-5 py-3 font-mono text-[12px] text-slate-soft">{p.billId}</td>
+                    <td className="px-5 py-3 text-[12.5px] text-ink">
+                      {p.type}{p.installmentNumber ? ` #${p.installmentNumber}` : ""}
+                    </td>
+                    <td className="px-5 py-3 text-[12.5px] text-slate">{p.method}</td>
+                    <td className="px-5 py-3 font-mono text-[13px] text-ink">{formatNPR(p.amount)}</td>
+                  </tr>
+                ))}
+                {myPayments.length === 0 && (
+                  <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-slate-soft">No payments recorded yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <Modal open={!!activeBill} onClose={() => setActiveBill(null)} title="Apply for an installment plan" width="max-w-lg">
@@ -297,6 +349,18 @@ export default function PatientBills() {
           </form>
         )}
       </Modal>
+
+      <PaymentFlowModal
+        open={!!payTarget}
+        onClose={() => setPayTarget(null)}
+        amount={payTarget ? payTarget.amount - payTarget.paid : 0}
+        description={payTarget ? `Bill ${payTarget.id}` : ""}
+        onPay={async (methodId) => {
+          const result = await payBill(payTarget.id, methodId);
+          if (!result.ok) setPayError((prev) => ({ ...prev, [payTarget.id]: result.error }));
+          return result;
+        }}
+      />
     </>
   );
 }
