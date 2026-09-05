@@ -7,7 +7,10 @@ import DoctorLayout from "./components/DoctorLayout";
 import PatientLayout from "./components/PatientLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import Login from "./pages/Login";
+import Login from "./pages/PortalSelect";
+import StaffLogin from "./pages/StaffLogin";
+import DoctorLogin from "./pages/DoctorLogin";
+import PatientLogin from "./pages/PatientLogin";
 import ChangePassword from "./pages/ChangePassword";
 
 import Dashboard from "./pages/Dashboard";
@@ -40,6 +43,9 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/login/staff" element={<StaffLogin />} />
+            <Route path="/login/doctor" element={<DoctorLogin />} />
+            <Route path="/login/patient" element={<PatientLogin />} />
             <Route path="/change-password" element={<ChangePassword />} />
 
             {/* Shared back-office shell — Admin sees everything; Front Desk sees a
@@ -47,31 +53,79 @@ export default function App() {
                 individually re-guarded below so a Front Desk session can't reach them
                 by typing the URL directly, even though they're inside the same shell. */}
             <Route element={<AdminLayout />}>
-              <Route path="/" element={<ProtectedRoute allow={["admin"]}><Dashboard /></ProtectedRoute>} />
-              <Route path="/frontdesk" element={<ProtectedRoute allow={["frontdesk"]}><FrontDeskOverview /></ProtectedRoute>} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute allow={["admin"]}>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/frontdesk"
+                element={
+                  <ProtectedRoute allow={["frontdesk"]}>
+                    <FrontDeskOverview />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/patients" element={<Patients />} />
-              <Route path="/doctors" element={<ProtectedRoute allow={["admin"]}><Doctors /></ProtectedRoute>} />
-              <Route path="/departments" element={<ProtectedRoute allow={["admin"]}><Departments /></ProtectedRoute>} />
+              <Route
+                path="/doctors"
+                element={
+                  <ProtectedRoute allow={["admin"]}>
+                    <Doctors />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/departments"
+                element={
+                  <ProtectedRoute allow={["admin"]}>
+                    <Departments />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/appointments" element={<Appointments />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/emi" element={<EmiManagement />} />
               <Route path="/emi/simulator" element={<RiskSimulator />} />
-              <Route path="/reports" element={<ProtectedRoute allow={["admin"]}><Reports /></ProtectedRoute>} />
-              <Route path="/audit-log" element={<ProtectedRoute allow={["admin"]}><AuditLog /></ProtectedRoute>} />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute allow={["admin"]}>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/audit-log"
+                element={
+                  <ProtectedRoute allow={["admin"]}>
+                    <AuditLog />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
             {/* Doctor — their own patients & appointments */}
             <Route element={<DoctorLayout />}>
               <Route path="/doctor" element={<DoctorDashboard />} />
               <Route path="/doctor/patients" element={<DoctorPatients />} />
-              <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+              <Route
+                path="/doctor/appointments"
+                element={<DoctorAppointments />}
+              />
               <Route path="/doctor/reports" element={<DoctorReports />} />
             </Route>
 
             {/* Patient — their own records, bills, and EMI */}
             <Route element={<PatientLayout />}>
               <Route path="/patient" element={<PatientOverview />} />
-              <Route path="/patient/appointments" element={<PatientAppointments />} />
+              <Route
+                path="/patient/appointments"
+                element={<PatientAppointments />}
+              />
               <Route path="/patient/bills" element={<PatientBills />} />
               <Route path="/patient/emi" element={<PatientEmi />} />
               <Route path="/patient/reports" element={<PatientReports />} />
